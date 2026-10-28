@@ -43,7 +43,7 @@ export default async function ZubehoerPage({
         initialSubSlug={subSlug}
         initialSearchQuery={resolvedParams?.q || ''}
         pageTitle="Sammler-Zubehör & Schutzhüllen"
-        pageSubtitle="Optimaler Schutz für deine wertvollsten Sticker und Trading Cards. Von passgenauen Penny Sleeves und formstabilen Ultra Pro Toploadern bis hin zu hochwertigen Reißverschluss-Sammelordnern."
+        pageSubtitle="Optimaler Schutz für deine wertvollsten Sticker und TC. Von passgenauen Penny Sleeves und formstabilen Ultra Pro Toploadern bis hin zu hochwertigen Reißverschluss-Sammelordnern."
       />
     </SiteShell>
   );

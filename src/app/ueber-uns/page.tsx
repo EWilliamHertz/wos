@@ -19,7 +19,7 @@ import SiteShell from '@/components/SiteShell';
 export const metadata: Metadata = {
   title: 'Über uns | WOS World of Stickers Hamburg',
   description:
-    'Lerne WOS World of Stickers kennen: Dein spezialisierter Fachhändler für Einzelsticker & Trading Cards aus Hamburg.',
+    'Lerne WOS World of Stickers kennen: Dein spezialisierter Fachhändler für Einzelsticker & TC aus Hamburg.',
 };
 
 export const dynamic = 'force-dynamic';

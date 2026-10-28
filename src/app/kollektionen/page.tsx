@@ -70,7 +70,7 @@ export default function KollektionenOverviewPage() {
             Serien &amp; Kollektionen
           </h1>
           <p className="text-zinc-400 text-sm max-w-2xl leading-relaxed">
-            Wähle deine Serie aus, um gezielt alle verfügbaren Einzelsticker und Trading Cards dieser Kollektion zu durchstöbern.
+            Wähle deine Serie aus, um gezielt alle verfügbaren Einzelsticker und TC dieser Kollektion zu durchstöbern.
           </p>
         </div>
 

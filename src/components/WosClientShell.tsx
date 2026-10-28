@@ -233,7 +233,7 @@ export default function WosClientShell({ initialProducts }: { initialProducts: P
                 WORLD OF <span className="text-amber-400">STICKERS</span>
               </span>
               <span className="text-[11px] text-amber-400/90 font-semibold tracking-wider uppercase">
-                Einzelsticker &amp; Trading Cards • Hamburg
+                Einzelsticker &amp; TC • Hamburg
               </span>
             </div>
           </Link>
@@ -601,7 +601,7 @@ export default function WosClientShell({ initialProducts }: { initialProducts: P
               <ShieldCheck className="w-4 h-4" /> 100% Original &amp; Handgeprüft
             </div>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Jeder Sticker und jede Trading Card wird in Hamburg frisch aus Original-Boostern gezogen und direkt in einer Schutzhülle gelagert.
+              Jeder Sticker und jede TC wird in Hamburg frisch aus Original-Boostern gezogen und direkt in einer Schutzhülle gelagert.
             </p>
           </div>
 

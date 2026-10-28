@@ -7,7 +7,7 @@ import SiteShell from '@/components/SiteShell';
 import ProductCatalogView from '@/components/ProductCatalogView';
 
 export const metadata: Metadata = {
-  title: 'Sammelkarten & Trading Cards kaufen | Panini Adrenalyn XL & Topps | WOS Hamburg',
+  title: 'Sammelkarten & TC kaufen | Panini Adrenalyn XL & Topps | WOS Hamburg',
   description:
     'Boosterfrische Sammelkarten von Panini Adrenalyn XL, Topps Champions League, NBA, NFL & Star Wars Unlimited im Toploader aus Hamburg.',
 };
@@ -42,10 +42,10 @@ export default async function SammelkartenPage({
         subcategories={subcategoryOptions}
         initialSubSlug={subSlug}
         initialSearchQuery={resolvedParams?.q || ''}
-        pageTitle="Sammelkarten & Trading Cards"
+        pageTitle="Sammelkarten & TC"
         pageSubtitle={`Finde deine Wunschkarten aus über ${cardProducts.length.toLocaleString(
           'de-DE'
-        )} originalen Trading Cards (Panini Adrenalyn XL, Topps Match Attax, NBA, NFL, Eishockey & Star Wars). Jede Karte wird geschützt im Sleeve & Toploader versendet!`}
+        )} originalen TC (Panini Adrenalyn XL, Topps Match Attax, NBA, NFL, Eishockey & Star Wars). Jede Karte wird geschützt im Sleeve & Toploader versendet!`}
       />
     </SiteShell>
   );

@@ -66,22 +66,22 @@ export const WOS_MAIN_CATEGORIES: MainCategory[] = [
     title: 'Sammelkarten',
     slug: 'sammelkarten',
     href: '/sammelkarten',
-    description: 'Boosterfrische Trading Cards von Panini Adrenalyn XL, Topps Match Attax, NBA und Star Wars im Toploader.',
+    description: 'Boosterfrische TC von Panini Adrenalyn XL, Topps Match Attax, NBA und Star Wars im Toploader.',
     badge: 'Top-Zustand',
     subcategories: [
       {
-        title: 'Panini Tradingcards',
-        slug: 'panini-tradingcards',
-        keywords: ['adrenalyn xl', 'fifa 365', 'fifa wm', 'top class', 'fifa score'],
+        title: 'Panini TC',
+        slug: 'panini-tc',
+        keywords: ['adrenalyn xl', 'fifa 365', 'fifa wm', 'top class', 'fifa score', 'panini tradingcards', 'panini tc'],
       },
       {
-        title: 'Topps Tradingcards',
-        slug: 'topps-tradingcards',
-        keywords: ['topps tradingcards', 'champions league 2026', 'champions league 2025', 'topps premier league'],
+        title: 'Topps TC',
+        slug: 'topps-tc',
+        keywords: ['topps tradingcards', 'topps tc', 'champions league 2026', 'champions league 2025', 'topps premier league'],
       },
       {
         title: 'Basketball & US Sports',
-        slug: 'us-sports-tradingcards',
+        slug: 'us-sports-tc',
         keywords: ['donruss', 'hoops', 'topps chrome nba', 'top class nba', 'nfl score', 'baseball'],
       },
       {
@@ -97,10 +97,10 @@ export const WOS_MAIN_CATEGORIES: MainCategory[] = [
     ],
   },
   {
-    title: 'One Piece Tradingcards',
-    slug: 'one-piece-tradingcards',
-    href: '/one-piece-tradingcards',
-    description: 'Offizielle One Piece Sammelkarten & Sticker aus dem Bandai & Netflix Universum.',
+    title: 'One Piece TC',
+    slug: 'one-piece-tc',
+    href: '/one-piece-tc',
+    description: 'Offizielle One Piece TC & Sticker aus dem Bandai & Netflix Universum.',
     badge: 'Anime Hit',
     subcategories: [
       {
@@ -121,10 +121,10 @@ export const WOS_MAIN_CATEGORIES: MainCategory[] = [
     ],
   },
   {
-    title: 'Naruto Tradingcards',
-    slug: 'naruto-tradingcards',
-    href: '/naruto-tradingcards',
-    description: 'Originale Naruto Sammelkarten, Earth Scroll Serie und Ninja-Tradingcards.',
+    title: 'Naruto TC',
+    slug: 'naruto-tc',
+    href: '/naruto-tc',
+    description: 'Originale Naruto Sammelkarten, Earth Scroll Serie und Ninja-TC.',
     badge: 'Anime',
     subcategories: [
       {
@@ -140,10 +140,10 @@ export const WOS_MAIN_CATEGORIES: MainCategory[] = [
     ],
   },
   {
-    title: 'Pokemon Tradingcards',
-    slug: 'pokemon-tradingcards',
-    href: '/pokemon-tradingcards',
-    description: 'Deutsche Pokémon Sammelkarten aus aktuellen Sets wie Stürmische Funken, Ewige Rivalen & Paldea.',
+    title: 'Pokemon TCG',
+    slug: 'pokemon-tcg',
+    href: '/pokemon-tcg',
+    description: 'Deutsche Pokémon TCG Sammelkarten aus aktuellen Sets wie Stürmische Funken, Ewige Rivalen & Paldea.',
     badge: 'Pokémon TCG',
     subcategories: [
       {
@@ -208,6 +208,7 @@ export function isProductInParentCategory(product: Product, parentSlug: string):
   const combined = `${product.category} ${product.series} ${product.title} ${product.manufacturer}`.toLowerCase();
 
   switch (parentSlug) {
+    case 'pokemon-tcg':
     case 'pokemon-tradingcards':
       return (
         combined.includes('pokemon') ||
@@ -222,9 +223,11 @@ export function isProductInParentCategory(product: Product, parentSlug: string):
         combined.includes('zenit')
       );
 
+    case 'one-piece-tc':
     case 'one-piece-tradingcards':
       return combined.includes('one piece');
 
+    case 'naruto-tc':
     case 'naruto-tradingcards':
       return combined.includes('naruto') || combined.includes('earth scroll');
 
@@ -240,9 +243,9 @@ export function isProductInParentCategory(product: Product, parentSlug: string):
 
     case 'sammelsticker':
       if (
-        isProductInParentCategory(product, 'pokemon-tradingcards') ||
-        isProductInParentCategory(product, 'one-piece-tradingcards') ||
-        isProductInParentCategory(product, 'naruto-tradingcards') ||
+        isProductInParentCategory(product, 'pokemon-tcg') ||
+        isProductInParentCategory(product, 'one-piece-tc') ||
+        isProductInParentCategory(product, 'naruto-tc') ||
         isProductInParentCategory(product, 'zubehoer')
       ) {
         return false;
@@ -251,14 +254,19 @@ export function isProductInParentCategory(product: Product, parentSlug: string):
 
     case 'sammelkarten':
       if (
-        isProductInParentCategory(product, 'pokemon-tradingcards') ||
-        isProductInParentCategory(product, 'one-piece-tradingcards') ||
-        isProductInParentCategory(product, 'naruto-tradingcards') ||
+        isProductInParentCategory(product, 'pokemon-tcg') ||
+        isProductInParentCategory(product, 'one-piece-tc') ||
+        isProductInParentCategory(product, 'naruto-tc') ||
         isProductInParentCategory(product, 'zubehoer')
       ) {
         return false;
       }
-      return product.productType === 'Tradingcard' || combined.includes('tradingcard') || combined.includes('card');
+      return (
+        product.productType === 'Tradingcard' ||
+        combined.includes('tradingcard') ||
+        combined.includes('card') ||
+        combined.includes('tc')
+      );
 
     default:
       return true;

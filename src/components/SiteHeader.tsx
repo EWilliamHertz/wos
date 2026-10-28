@@ -71,7 +71,7 @@ export default function SiteHeader({
                 WORLD OF <span className="text-amber-400">STICKERS</span>
               </span>
               <span className="text-[11px] text-amber-400/90 font-semibold tracking-wider uppercase">
-                Einzelsticker &amp; Trading Cards • Hamburg
+                Einzelsticker &amp; TC • Hamburg
               </span>
             </div>
           </Link>

@@ -14,7 +14,7 @@ export default function SiteFooter() {
               <ShieldCheck className="w-4 h-4" /> 100% Original &amp; Handgeprüft
             </div>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Jeder Sticker und jede Trading Card wird in Hamburg frisch aus Original-Boostern gezogen und direkt in einer Schutzhülle gelagert.
+              Jeder Sticker und jede TC wird in Hamburg frisch aus Original-Boostern gezogen und direkt in einer Schutzhülle gelagert.
             </p>
           </div>
 

@@ -34,7 +34,7 @@ export default function FaqPage() {
     },
     {
       q: 'Wie werden Sticker und Sammelkarten verpackt?',
-      a: 'Sammlerschutz steht bei uns an erster Stelle! Jeder Sticker wird in einer passgenauen Schutzhülle (Sleeve) verpackt. Trading Cards erhalten zusätzlich einen stabilen Hartplastik-Toploader. Der Versand erfolgt in einem verstärkten Umschlag mit Knickschutz-Karton, damit jede Karte im Zustand "Mint" bzw. "Sehr gut" bei dir ankommt.',
+      a: 'Sammlerschutz steht bei uns an erster Stelle! Jeder Sticker wird in einer passgenauen Schutzhülle (Sleeve) verpackt. TC erhalten zusätzlich einen stabilen Hartplastik-Toploader. Der Versand erfolgt in einem verstärkten Umschlag mit Knickschutz-Karton, damit jede Karte im Zustand "Mint" bzw. "Sehr gut" bei dir ankommt.',
     },
     {
       q: 'Wie schnell wird meine Bestellung versendet?',
@@ -93,7 +93,7 @@ export default function FaqPage() {
             </div>
             <h2 className="text-base font-bold text-white">Sleeve &amp; Toploader</h2>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Jeder Sticker in Schutzhülle, Trading Cards zusätzlich im Toploader. Kein Knicken, keine Kratzer.
+              Jeder Sticker in Schutzhülle, TC zusätzlich im Toploader. Kein Knicken, keine Kratzer.
             </p>
           </div>
 

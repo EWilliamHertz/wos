@@ -84,10 +84,13 @@ export default function HeaderNav({
         return Star;
       case 'sammelkarten':
         return Layers;
+      case 'one-piece-tc':
       case 'one-piece-tradingcards':
         return Sparkles;
+      case 'naruto-tc':
       case 'naruto-tradingcards':
         return Flame;
+      case 'pokemon-tcg':
       case 'pokemon-tradingcards':
         return Sparkles;
       case 'zubehoer':

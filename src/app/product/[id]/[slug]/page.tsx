@@ -12,7 +12,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getProducts, getCatalogSnapshot } from '@/lib/catalog.server';
-import { formatEur } from '@/lib/catalog';
+import { formatEur, getProductTypeLabel } from '@/lib/catalog';
 import SiteShell from '@/components/SiteShell';
 import ProductAddButton from './ProductAddButton';
 
@@ -31,9 +31,11 @@ export async function generateMetadata({
     return { title: 'Produkt nicht gefunden' };
   }
 
+  const typeLabel = getProductTypeLabel(product);
+
   return {
     title: `${product.title} #${product.number} | WOS World of Stickers Hamburg`,
-    description: `Original ${product.manufacturer} ${product.productType} #${product.number} (${product.series}) kaufen. Zustand: ${product.condition}.`,
+    description: `Original ${product.manufacturer} ${typeLabel} #${product.number} (${product.series}) kaufen. Zustand: ${product.condition}.`,
   };
 }
 
@@ -125,7 +127,7 @@ export default async function ProductDetailPage({
                 </div>
                 <div>
                   <span className="text-zinc-500 block">Produkttyp</span>
-                  <span className="text-white font-bold text-sm">{product.productType}</span>
+                  <span className="text-white font-bold text-sm">{getProductTypeLabel(product)}</span>
                 </div>
                 <div>
                   <span className="text-zinc-500 block">Serie</span>

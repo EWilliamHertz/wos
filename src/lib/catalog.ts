@@ -34,11 +34,20 @@ export const WOS_CATEGORIES = [
   'Topps Champions League 2026/27',
   'Topps Premier League 2026/27',
   'Star Wars Unlimited Legenden der Macht',
-  'One Piece Tradingcards & Sticker',
-  'Naruto Tradingcards - Earth Scroll Serie 1',
+  'One Piece TC & Sticker',
+  'Naruto TC - Earth Scroll Serie 1',
 ] as const;
 
 export function formatEur(price: number): string {
   const safePrice = typeof price === 'number' && !Number.isNaN(price) ? price : 1.0;
   return `${safePrice.toFixed(2).replace('.', ',')} €`;
+}
+
+export function getProductTypeLabel(product: Pick<Product, 'productType' | 'category' | 'series' | 'title'>): string {
+  if (product.productType === 'Tradingcard') {
+    const combined = `${product.category || ''} ${product.series || ''} ${product.title || ''}`.toLowerCase();
+    const isPokemon = combined.includes('pokemon') || combined.includes('pokémon');
+    return isPokemon ? 'TCG' : 'TC';
+  }
+  return product.productType;
 }

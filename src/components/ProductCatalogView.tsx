@@ -16,7 +16,7 @@ import {
   Package,
 } from 'lucide-react';
 import type { Product } from '@/lib/catalog';
-import { formatEur } from '@/lib/catalog';
+import { formatEur, getProductTypeLabel } from '@/lib/catalog';
 import { useCart } from '@/context/CartContext';
 
 export interface SubcategoryOption {
@@ -286,7 +286,7 @@ export default function ProductCatalogView({
                         : 'bg-[#06070a] text-zinc-400 hover:text-white border border-zinc-800/80'
                     }`}
                   >
-                    {type === 'ALL' ? 'Alle' : type === 'Sticker' ? 'Sticker' : 'Karten'}
+                    {type === 'ALL' ? 'Alle' : type === 'Sticker' ? 'Sticker' : 'TC'}
                   </button>
                 ))}
               </div>
@@ -452,7 +452,7 @@ export default function ProductCatalogView({
                           </span>
                         </div>
                         <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-900/90 text-zinc-300 border border-zinc-700/70">
-                          {product.productType}
+                          {getProductTypeLabel(product)}
                         </span>
                       </Link>
 
