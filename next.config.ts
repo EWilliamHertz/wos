@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Cloud Shell web preview origin (hostname only: no scheme, no port).
   allowedDevOrigins: ['3000-cs-553118797525-default.cs-europe-west4-pear.cloudshell.dev'],
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'framer-motion'],
+  },
   // Tailwind CSS v4 loader for Turbopack (without this, no styles are generated).
   turbopack: {
     rules: {

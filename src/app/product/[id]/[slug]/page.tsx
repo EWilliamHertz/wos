@@ -2,6 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import {
   ArrowLeft,
   Truck,
@@ -12,8 +13,29 @@ import {
 } from 'lucide-react';
 import { getProducts } from '@/lib/catalog.server';
 import { formatEur } from '@/lib/catalog';
+import SiteShell from '@/components/SiteShell';
+import ProductAddButton from './ProductAddButton';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; slug: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const products = getProducts();
+  const product = products.find((p) => p.id === id);
+
+  if (!product) {
+    return { title: 'Produkt nicht gefunden' };
+  }
+
+  return {
+    title: `${product.title} #${product.number} | WOS World of Stickers Hamburg`,
+    description: `Original ${product.manufacturer} ${product.productType} #${product.number} (${product.series}) kaufen. Zustand: ${product.condition}.`,
+  };
+}
 
 export default async function ProductDetailPage({
   params,
@@ -33,29 +55,30 @@ export default async function ProductDetailPage({
     .slice(0, 4);
 
   return (
-    <div className="min-h-screen bg-[#06070a] text-zinc-100 py-10 px-4 sm:px-6">
-      <div className="max-w-6xl mx-auto space-y-10">
+    <SiteShell totalProductsCount={products.length}>
+      <div className="space-y-10 max-w-5xl mx-auto">
         <div className="flex items-center justify-between gap-4">
           <Link
             href="/"
             className="inline-flex items-center gap-2 text-xs font-bold text-zinc-300 hover:text-amber-400 transition"
           >
             <ArrowLeft className="w-4 h-4" />
-            Zurück zur Übersicht
+            Zurück zum Shop
           </Link>
 
           <Link
             href="/admin"
             className="text-xs text-amber-400 hover:underline font-semibold"
           >
-            Produkt &amp; Preis im /admin (12345) bearbeiten
+            Im Admin-Bereich verwalten →
           </Link>
         </div>
 
+        {/* Main Product Card */}
         <div className="grid md:grid-cols-12 gap-8 bg-[#0c0f16] border border-zinc-800/90 rounded-3xl p-6 sm:p-10 shadow-2xl">
           <div className="md:col-span-5 bg-[#07090e] border border-zinc-800 rounded-2xl p-6 flex flex-col items-center justify-center relative">
             <span className="absolute top-4 left-4 px-3 py-1 rounded-lg bg-amber-400 text-zinc-950 font-black text-xs font-mono">
-              #{product.number}
+              {`#${product.number}`}
             </span>
             <img
               src={product.blobImageUrl}
@@ -63,7 +86,7 @@ export default async function ProductDetailPage({
               className="w-full max-h-[420px] object-contain drop-shadow-2xl"
             />
             <div className="mt-4 w-full pt-3 border-t border-zinc-900 flex items-center justify-between text-[11px] text-zinc-500">
-              <span>Vercel Blob Asset</span>
+              <span>Vercel Blob Bild</span>
               <a
                 href={product.blobImageUrl}
                 target="_blank"
@@ -121,12 +144,7 @@ export default async function ProductDetailPage({
             </div>
 
             <div className="space-y-4 pt-4 border-t border-zinc-800">
-              <Link
-                href="/"
-                className="block w-full text-center py-3.5 px-6 rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black text-sm transition"
-              >
-                Im Shop in den Warenkorb legen ({formatEur(product.price)})
-              </Link>
+              <ProductAddButton product={product} />
 
               <div className="grid sm:grid-cols-3 gap-3 text-xs text-zinc-400 pt-2">
                 <div className="flex items-center gap-2">
@@ -139,17 +157,18 @@ export default async function ProductDetailPage({
                 </div>
                 <div className="flex items-center gap-2">
                   <Truck className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>1,00 € Versand aus Hamburg</span>
+                  <span>1,00 € Versand (Hamburg)</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Related Products */}
         {related.length > 0 && (
           <div className="space-y-4">
             <h2 className="text-lg font-black text-white">
-              Weitere Einzelstücke aus {product.series}
+              {`Weitere Einzelstücke aus ${product.series}`}
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {related.map((item) => (
@@ -164,7 +183,7 @@ export default async function ProductDetailPage({
                     className="w-full h-40 object-contain bg-[#07090e] rounded-xl p-2"
                   />
                   <div>
-                    <div className="text-xs font-bold text-amber-400 font-mono">#{item.number}</div>
+                    <div className="text-xs font-bold text-amber-400 font-mono">{`#${item.number}`}</div>
                     <div className="text-xs font-extrabold text-white truncate">{item.title}</div>
                     <div className="text-xs font-black text-amber-300 mt-1">
                       {formatEur(item.price)}
@@ -176,6 +195,6 @@ export default async function ProductDetailPage({
           </div>
         )}
       </div>
-    </div>
+    </SiteShell>
   );
 }

@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Sparkles,
   Truck,
+  CheckCircle2,
   X,
   Plus,
   Minus,
@@ -272,12 +273,7 @@ export default function WosClientShell({ initialProducts }: { initialProducts: P
         </div>
 
         {/* Clean Secondary Navigation Menu */}
-        <HeaderNav
-          selectedType={selectedType}
-          selectedCategory={selectedCategory}
-          onSelectType={setSelectedType}
-          onSelectCategory={setSelectedCategory}
-        />
+        <HeaderNav />
       </header>
 
       {/* Hero Banner */}
