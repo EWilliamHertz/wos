@@ -13,11 +13,11 @@ import {
 import HeaderNav from './HeaderNav';
 import { useCart } from '@/context/CartContext';
 import { formatEur } from '@/lib/catalog';
-import { DEFAULT_CATEGORY_COUNTS, type CategoryCounts } from '@/lib/categories';
+import type { CategoryCounts } from '@/lib/categories';
 
 export default function SiteHeader({
   totalProductsCount,
-  categoryCounts = DEFAULT_CATEGORY_COUNTS,
+  categoryCounts,
 }: {
   totalProductsCount?: number;
   categoryCounts?: CategoryCounts;

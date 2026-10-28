@@ -6,12 +6,12 @@ import { CartProvider } from '@/context/CartContext';
 import SiteHeader from './SiteHeader';
 import CartDrawer from './CartDrawer';
 import SiteFooter from './SiteFooter';
-import { DEFAULT_CATEGORY_COUNTS, type CategoryCounts } from '@/lib/categories';
+import type { CategoryCounts } from '@/lib/categories';
 
 export default function SiteShell({
   children,
   totalProductsCount,
-  categoryCounts = DEFAULT_CATEGORY_COUNTS,
+  categoryCounts,
 }: {
   children: React.ReactNode;
   totalProductsCount?: number;

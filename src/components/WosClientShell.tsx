@@ -27,7 +27,6 @@ import {
 import type { Product } from '@/lib/catalog';
 import { formatEur } from '@/lib/catalog';
 import HeaderNav from '@/components/HeaderNav';
-import { DEFAULT_CATEGORY_COUNTS } from '@/lib/categories';
 
 interface CartItem {
   product: Product;
@@ -274,7 +273,7 @@ export default function WosClientShell({ initialProducts }: { initialProducts: P
         </div>
 
         {/* Clean Secondary Navigation Menu */}
-        <HeaderNav categoryCounts={DEFAULT_CATEGORY_COUNTS} />
+        <HeaderNav />
       </header>
 
       {/* Hero Banner */}

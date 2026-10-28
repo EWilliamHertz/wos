@@ -18,14 +18,10 @@ import {
   Flame,
   Info,
 } from 'lucide-react';
-import {
-  WOS_MAIN_CATEGORIES,
-  DEFAULT_CATEGORY_COUNTS,
-  type CategoryCounts,
-} from '@/lib/categories';
+import { WOS_MAIN_CATEGORIES, type CategoryCounts } from '@/lib/categories';
 
 export default function HeaderNav({
-  categoryCounts = DEFAULT_CATEGORY_COUNTS,
+  categoryCounts,
 }: {
   categoryCounts?: CategoryCounts;
 }) {
@@ -101,14 +97,12 @@ export default function HeaderNav({
     }
   };
 
-  const currentCounts = liveCounts || categoryCounts || DEFAULT_CATEGORY_COUNTS;
+  const currentCounts = liveCounts || categoryCounts;
 
   // Filter main categories: hide categories with 0 items, but preserve designated slot order
   const visibleCategories = WOS_MAIN_CATEGORIES.filter((cat) => {
-    const catCount =
-      currentCounts.main[cat.slug] ??
-      DEFAULT_CATEGORY_COUNTS.main[cat.slug] ??
-      0;
+    if (!currentCounts) return false;
+    const catCount = currentCounts.main[cat.slug] ?? 0;
     return catCount > 0;
   });
 
@@ -131,10 +125,8 @@ export default function HeaderNav({
             const isCurrentPage = pathname === cat.href || pathname.startsWith(`${cat.href}/`);
             const isMenuOpen = activeMenuSlug === cat.slug;
             const visibleSubcategories = (cat.subcategories || []).filter((sub) => {
-              const subCount =
-                currentCounts.sub[sub.slug] ??
-                DEFAULT_CATEGORY_COUNTS.sub[sub.slug] ??
-                0;
+              if (!currentCounts) return false;
+              const subCount = currentCounts.sub[sub.slug] ?? 0;
               return subCount > 0;
             });
             const hasSubcats = visibleSubcategories.length > 0;
@@ -189,7 +181,7 @@ export default function HeaderNav({
                           <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
                             {cat.title}
                           </span>
-                          {currentCounts.main[cat.slug] !== undefined && (
+                          {currentCounts?.main?.[cat.slug] !== undefined && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-400/10 text-amber-300 font-mono">
                               {currentCounts.main[cat.slug]}
                             </span>
@@ -206,7 +198,7 @@ export default function HeaderNav({
 
                       <div className="space-y-1">
                         {visibleSubcategories.map((sub) => {
-                          const subCount = currentCounts.sub[sub.slug];
+                          const subCount = currentCounts?.sub?.[sub.slug];
                           return (
                             <Link
                               key={sub.slug}
