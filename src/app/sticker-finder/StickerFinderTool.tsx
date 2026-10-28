@@ -14,7 +14,7 @@ import {
   Check,
 } from 'lucide-react';
 import type { Product } from '@/lib/catalog';
-import { formatEur } from '@/lib/catalog';
+import { formatEur, getProductTypeLabel } from '@/lib/catalog';
 import { useCart } from '@/context/CartContext';
 
 export default function StickerFinderTool({ products }: { products: Product[] }) {
@@ -240,7 +240,7 @@ export default function StickerFinderTool({ products }: { products: Product[] })
                         </span>
                       </div>
                       <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-900/90 text-zinc-300 border border-zinc-700/70">
-                        {product.productType}
+                        {getProductTypeLabel(product)}
                       </span>
                     </Link>
 

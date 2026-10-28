@@ -52,6 +52,8 @@ export default async function ProductDetailPage({
     notFound();
   }
 
+  const typeLabel = getProductTypeLabel(product);
+
   const related = products
     .filter((p) => p.id !== product.id && p.series === product.series)
     .slice(0, 4);
@@ -141,7 +143,7 @@ export default async function ProductDetailPage({
 
               <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-line">
                 {product.description ||
-                  `Original ${product.productType} in geprüfter Sammlerqualität. Direkt nach dem Öffnen des Boosters im Schutz-Sleeve gelagert.`}
+                  `Original ${typeLabel} in geprüfter Sammlerqualität. Direkt nach dem Öffnen des Boosters im Schutz-Sleeve gelagert.`}
               </p>
             </div>
 

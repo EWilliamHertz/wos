@@ -46,7 +46,7 @@ export default function SiteHeader({
           </div>
           <div className="flex items-center gap-5 text-zinc-400">
             {typeof totalProductsCount === 'number' && totalProductsCount > 0 && (
-              <span className="hidden sm:inline text-zinc-500">
+              <span suppressHydrationWarning className="hidden sm:inline text-zinc-500">
                 {`${totalProductsCount.toLocaleString('de-DE')} Einzelstücke auf Lager`}
               </span>
             )}
@@ -70,8 +70,11 @@ export default function SiteHeader({
               <span className="text-base sm:text-lg font-black tracking-tight text-white block leading-none">
                 WORLD OF <span className="text-amber-400">STICKERS</span>
               </span>
-              <span className="text-[11px] text-amber-400/90 font-semibold tracking-wider uppercase">
-                Einzelsticker &amp; TC • Hamburg
+              <span
+                suppressHydrationWarning
+                className="text-[11px] text-amber-400/90 font-semibold tracking-wider uppercase"
+              >
+                {'Einzelsticker & TC • Hamburg'}
               </span>
             </div>
           </Link>
