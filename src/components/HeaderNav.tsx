@@ -18,26 +18,23 @@ import {
   Flame,
   Info,
 } from 'lucide-react';
-import { WOS_MAIN_CATEGORIES, type CategoryCounts } from '@/lib/categories';
+import {
+  WOS_MAIN_CATEGORIES,
+  DEFAULT_CATEGORY_COUNTS,
+  type CategoryCounts,
+} from '@/lib/categories';
 
 export default function HeaderNav({
-  categoryCounts: initialCategoryCounts,
+  categoryCounts = DEFAULT_CATEGORY_COUNTS,
 }: {
   categoryCounts?: CategoryCounts;
 }) {
   const pathname = usePathname();
   const [activeMenuSlug, setActiveMenuSlug] = useState<string | null>(null);
-  const [counts, setCounts] = useState<CategoryCounts | undefined>(initialCategoryCounts);
+  const [liveCounts, setLiveCounts] = useState<CategoryCounts | null>(null);
   const navRef = useRef<HTMLDivElement>(null);
 
-  // Sync initialCategoryCounts if prop updates
-  useEffect(() => {
-    if (initialCategoryCounts) {
-      setCounts(initialCategoryCounts);
-    }
-  }, [initialCategoryCounts]);
-
-  // Periodically refresh category counts to capture live scraper additions
+  // Periodically refresh category counts in the background to capture live scraper additions
   useEffect(() => {
     let active = true;
     const fetchCounts = async () => {
@@ -46,24 +43,19 @@ export default function HeaderNav({
         if (!res.ok) return;
         const data = await res.json();
         if (active && data.counts) {
-          setCounts(data.counts);
+          setLiveCounts(data.counts);
         }
       } catch {
         // Ignore network hiccups
       }
     };
 
-    // If initial counts were missing, fetch immediately
-    if (!initialCategoryCounts) {
-      fetchCounts();
-    }
-
     const interval = setInterval(fetchCounts, 30000);
     return () => {
       active = false;
       clearInterval(interval);
     };
-  }, [initialCategoryCounts]);
+  }, []);
 
   // Close menus on outside click or Escape
   useEffect(() => {
@@ -109,10 +101,14 @@ export default function HeaderNav({
     }
   };
 
+  const currentCounts = liveCounts || categoryCounts || DEFAULT_CATEGORY_COUNTS;
+
   // Filter main categories: hide categories with 0 items, but preserve designated slot order
   const visibleCategories = WOS_MAIN_CATEGORIES.filter((cat) => {
-    if (!counts) return true;
-    const catCount = counts.main[cat.slug] ?? 0;
+    const catCount =
+      currentCounts.main[cat.slug] ??
+      DEFAULT_CATEGORY_COUNTS.main[cat.slug] ??
+      0;
     return catCount > 0;
   });
 
@@ -135,8 +131,11 @@ export default function HeaderNav({
             const isCurrentPage = pathname === cat.href || pathname.startsWith(`${cat.href}/`);
             const isMenuOpen = activeMenuSlug === cat.slug;
             const visibleSubcategories = (cat.subcategories || []).filter((sub) => {
-              if (!counts) return true;
-              return (counts.sub[sub.slug] ?? 0) > 0;
+              const subCount =
+                currentCounts.sub[sub.slug] ??
+                DEFAULT_CATEGORY_COUNTS.sub[sub.slug] ??
+                0;
+              return subCount > 0;
             });
             const hasSubcats = visibleSubcategories.length > 0;
 
@@ -190,9 +189,9 @@ export default function HeaderNav({
                           <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
                             {cat.title}
                           </span>
-                          {counts?.main[cat.slug] !== undefined && (
+                          {currentCounts.main[cat.slug] !== undefined && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-400/10 text-amber-300 font-mono">
-                              {counts.main[cat.slug]}
+                              {currentCounts.main[cat.slug]}
                             </span>
                           )}
                         </div>
@@ -207,7 +206,7 @@ export default function HeaderNav({
 
                       <div className="space-y-1">
                         {visibleSubcategories.map((sub) => {
-                          const subCount = counts?.sub[sub.slug];
+                          const subCount = currentCounts.sub[sub.slug];
                           return (
                             <Link
                               key={sub.slug}

@@ -22,6 +22,44 @@ export interface CategoryCounts {
   sub: Record<string, number>;
 }
 
+export const DEFAULT_CATEGORY_COUNTS: CategoryCounts = {
+  main: {
+    sammelsticker: 1,
+    sammelkarten: 1,
+    'one-piece-tradingcards': 1,
+    'naruto-tradingcards': 0,
+    'pokemon-tradingcards': 1,
+    zubehoer: 0,
+  },
+  sub: {
+    'panini-sticker': 1,
+    'topps-sticker': 1,
+    'film-fernsehen-disney': 1,
+    'american-football-sticker': 1,
+    'basketball-sticker': 1,
+    'pdc-dart-sticker': 1,
+    'panini-tradingcards': 1,
+    'topps-tradingcards': 1,
+    'us-sports-tradingcards': 1,
+    'eishockey-formel-1': 1,
+    'film-fernsehen-cards': 1,
+    'the-time-of-battle': 0,
+    'netflix-one-piece': 1,
+    'alle-one-piece': 1,
+    'earth-scroll-serie-1': 0,
+    'alle-naruto': 0,
+    'stuermische-funken': 1,
+    'ewige-rivalen': 1,
+    'entwicklungen-in-paldea': 1,
+    'astralglanz-zenit': 1,
+    'paradoxrift-obsidian': 1,
+    'prismatische-entwicklungen': 1,
+    sleeves: 0,
+    toploader: 0,
+    binder: 0,
+  },
+};
+
 export const WOS_MAIN_CATEGORIES: MainCategory[] = [
   {
     title: 'Sammelsticker',
