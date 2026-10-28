@@ -1,19 +1,21 @@
 // src/lib/catalog.ts
-// Client-safe types and constants. Filesystem access lives in catalog.server.ts.
-
 export interface Product {
   id: string;
   slug: string;
   number: string;
   title: string;
-  manufacturer: 'Panini' | 'Topps' | 'Netflix' | 'Disney / StarWars.com' | 'Bandai';
+  manufacturer: string;
   productType: 'Sticker' | 'Tradingcard';
   series: string;
   category: string;
   condition: string;
   price: number;
+  currency?: string;
   stock: number;
+  inStock?: boolean;
+  description?: string;
   originalSourceUrl: string;
+  originalImageUrl?: string;
   blobImageUrl: string;
   updatedAt: string;
 }
@@ -35,3 +37,8 @@ export const WOS_CATEGORIES = [
   'One Piece Tradingcards & Sticker',
   'Naruto Tradingcards - Earth Scroll Serie 1',
 ] as const;
+
+export function formatEur(price: number): string {
+  const safePrice = typeof price === 'number' && !Number.isNaN(price) ? price : 1.0;
+  return `${safePrice.toFixed(2).replace('.', ',')} €`;
+}

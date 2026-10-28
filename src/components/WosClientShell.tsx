@@ -1,7 +1,7 @@
 // src/components/WosClientShell.tsx
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   Sparkles,
   Truck,
-  CheckCircle2,
   X,
   Plus,
   Minus,
@@ -18,10 +17,14 @@ import {
   PackageCheck,
   Mail,
   MapPin,
-  ArrowRight,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Layers,
+  Check,
 } from 'lucide-react';
 import type { Product } from '@/lib/catalog';
-import { WOS_CATEGORIES } from '@/lib/catalog';
+import { formatEur } from '@/lib/catalog';
 import HeaderNav from '@/components/HeaderNav';
 
 interface CartItem {
@@ -29,16 +32,58 @@ interface CartItem {
   quantity: number;
 }
 
+const ITEMS_PER_PAGE = 36;
+
 export default function WosClientShell({ initialProducts }: { initialProducts: Product[] }) {
   const [selectedCategory, setSelectedCategory] = useState<string>('Alle Kollektionen');
   const [selectedType, setSelectedType] = useState<'ALL' | 'Sticker' | 'Tradingcard'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [gapFinderInput, setGapFinderInput] = useState('');
+  const [sortBy, setSortBy] = useState<'number-asc' | 'price-asc' | 'price-desc' | 'title-asc'>('number-asc');
+  const [currentPage, setCurrentPage] = useState(1);
   const [shippingZone, setShippingZone] = useState<'DE_EU' | 'WORLD'>('DE_EU');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [justAddedId, setJustAddedId] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  // Parse missing sticker/card numbers from the Sticker- & Karten-Finder (e.g., "15, 50, 108, KSA19")
+  // Mark client mount & load cart from localStorage
+  useEffect(() => {
+    setMounted(true);
+    try {
+      const saved = localStorage.getItem('wos_collector_cart');
+      if (saved) setCart(JSON.parse(saved));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Save cart to localStorage
+  useEffect(() => {
+    if (!mounted) return;
+    try {
+      localStorage.setItem('wos_collector_cart', JSON.stringify(cart));
+    } catch {
+      // ignore
+    }
+  }, [cart, mounted]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, selectedType, searchQuery, gapFinderInput, sortBy]);
+
+  // Dynamically compute categories & counts from actual products
+  const categoryStats = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of initialProducts) {
+      const cat = p.category || p.series || 'Weitere Kollektionen';
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }, [initialProducts]);
+
+  // Parse missing sticker/card numbers from the Sticker- & Karten-Finder
   const gapNumbers = useMemo(() => {
     if (!gapFinderInput.trim()) return [];
     return gapFinderInput
@@ -48,20 +93,24 @@ export default function WosClientShell({ initialProducts }: { initialProducts: P
   }, [gapFinderInput]);
 
   const filteredProducts = useMemo(() => {
-    return initialProducts.filter((product) => {
+    const list = initialProducts.filter((product) => {
+      const cat = product.category || product.series || 'Weitere Kollektionen';
       const matchesCategory =
         selectedCategory === 'Alle Kollektionen' ||
-        product.category === selectedCategory ||
+        cat === selectedCategory ||
         product.series.toLowerCase().includes(selectedCategory.toLowerCase());
 
       const matchesType =
         selectedType === 'ALL' || product.productType === selectedType;
 
+      const q = searchQuery.trim().toLowerCase();
       const matchesSearch =
-        !searchQuery.trim() ||
-        product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.series.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.number.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        product.title.toLowerCase().includes(q) ||
+        product.series.toLowerCase().includes(q) ||
+        product.manufacturer.toLowerCase().includes(q) ||
+        product.number.toLowerCase() === q ||
+        `nr.${product.number.toLowerCase()}` === q;
 
       const matchesGapFinder =
         gapNumbers.length === 0 ||
@@ -69,19 +118,63 @@ export default function WosClientShell({ initialProducts }: { initialProducts: P
 
       return matchesCategory && matchesType && matchesSearch && matchesGapFinder;
     });
-  }, [initialProducts, selectedCategory, selectedType, searchQuery, gapNumbers]);
 
-  const addToCart = (product: Product) => {
+    // Deterministic sort: identical on both Node.js (SSR) and Browser (Client)
+    return list.sort((a, b) => {
+      if (sortBy === 'price-asc') {
+        const diff = a.price - b.price;
+        if (diff !== 0) return diff;
+      } else if (sortBy === 'price-desc') {
+        const diff = b.price - a.price;
+        if (diff !== 0) return diff;
+      } else if (sortBy === 'title-asc') {
+        const diff = a.title.localeCompare(b.title, 'de');
+        if (diff !== 0) return diff;
+      } else {
+        // Natural sort by sticker/card number
+        const diff = a.number.localeCompare(b.number, 'de', { numeric: true, sensitivity: 'base' });
+        if (diff !== 0) return diff;
+      }
+      return a.id.localeCompare(b.id);
+    });
+  }, [initialProducts, selectedCategory, selectedType, searchQuery, gapNumbers, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredProducts, currentPage]);
+
+  const addToCart = (product: Product, openDrawer = false) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
         return prev.map((item) =>
           item.product.id === product.id
-            ? { ...item, quantity: Math.min(product.stock, item.quantity + 1) }
+            ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
       return [...prev, { product, quantity: 1 }];
+    });
+    setJustAddedId(product.id);
+    setTimeout(() => setJustAddedId(null), 1200);
+    if (openDrawer) setIsCartOpen(true);
+  };
+
+  const addAllGapMatchesToCart = () => {
+    if (filteredProducts.length === 0) return;
+    setCart((prev) => {
+      const map = new Map(prev.map((i) => [i.product.id, i]));
+      for (const p of filteredProducts.slice(0, 50)) {
+        const existing = map.get(p.id);
+        if (existing) {
+          map.set(p.id, { ...existing, quantity: existing.quantity + 1 });
+        } else {
+          map.set(p.id, { product: p, quantity: 1 });
+        }
+      }
+      return Array.from(map.values());
     });
     setIsCartOpen(true);
   };
@@ -98,73 +191,87 @@ export default function WosClientShell({ initialProducts }: { initialProducts: P
     );
   };
 
+  const totalItemsInCart = cart.reduce((sum, i) => sum + i.quantity, 0);
   const subtotal = cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
   const shippingCost = cart.length === 0 ? 0 : shippingZone === 'DE_EU' ? 1.0 : 5.0;
   const total = subtotal + shippingCost;
 
   return (
-    <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col">
-      {/* Top Collector Announcement Bar */}
-      <div className="relative bg-gradient-to-r from-amber-500/15 via-slate-950 to-sky-500/15 border-b border-white/5 text-xs py-2 px-4">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
-          <div className="flex items-center gap-2 font-medium text-amber-300">
-            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+    <div className="min-h-screen bg-[#06070a] text-zinc-100 flex flex-col selection:bg-amber-400 selection:text-black">
+      {/* Top Collector Bar */}
+      <div className="bg-[#0c0e14] border-b border-amber-500/20 text-xs py-2 px-4">
+        <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-amber-300/90 font-medium">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <span>
-              <strong>1,00 € Briefversand aus Hamburg</strong> (DE &amp; EU) • Jede Karte &amp; jeder Sticker handgeprüft im Sleeve/Toploader!
+              <strong>1,00 € Pauschalversand (DE &amp; EU)</strong> aus Hamburg • 100% Original Panini &amp; Topps im Schutz-Sleeve
             </span>
           </div>
-          <div className="hidden md:flex items-center gap-5 text-slate-400">
-            <span className="inline-flex items-center gap-1.5">
-              <Truck className="w-3.5 h-3.5 text-sky-400" /> Versand aus Hamburg
+          <div className="flex items-center gap-5 text-zinc-400">
+            <span className="hidden sm:inline text-zinc-500">
+              {`${initialProducts.length.toLocaleString('de-DE')} Einzelstücke auf Lager`}
             </span>
-            <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> 14 Tage Widerrufsrecht
-            </span>
+            <a href="#faq" className="hover:text-amber-400 transition">
+              Versand &amp; FAQ
+            </a>
           </div>
         </div>
       </div>
 
-      {/* Main Sticky Header */}
-      <header className="sticky top-0 z-30 backdrop-blur-xl bg-[#07090e]/85 border-b border-white/10 shadow-xl shadow-black/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-amber-300 via-amber-400 to-amber-600 flex items-center justify-center text-slate-950 font-black text-lg shadow-lg shadow-amber-500/30 ring-1 ring-white/20 group-hover:rotate-[-4deg] group-hover:scale-105 transition">
-              WOS
+      {/* Sticky Glass Header */}
+      <header className="sticky top-0 z-30 backdrop-blur-2xl bg-[#06070a]/90 border-b border-zinc-800/80 shadow-xl shadow-black/40">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
+          <Link href="/" className="flex items-center gap-3.5 group shrink-0">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 p-[1px] shadow-lg shadow-amber-500/15 group-hover:rotate-[-3deg] transition">
+              <div className="w-full h-full bg-[#090b10] rounded-[11px] flex items-center justify-center font-black text-amber-400 text-base tracking-tighter group-hover:bg-transparent group-hover:text-black transition">
+                WOS
+              </div>
             </div>
             <div>
-              <span className="text-lg sm:text-xl font-black tracking-tight text-white block leading-none">
+              <span className="text-base sm:text-lg font-black tracking-tight text-white block leading-none">
                 WORLD OF <span className="text-amber-400">STICKERS</span>
               </span>
-              <span className="text-[11px] text-slate-400 font-medium tracking-[0.18em] uppercase">
+              <span className="text-[11px] text-amber-400/90 font-semibold tracking-wider uppercase">
                 Einzelsticker &amp; Trading Cards • Hamburg
               </span>
             </div>
           </Link>
 
-          {/* Quick Search */}
-          <div className="hidden md:flex flex-1 max-w-md relative">
-            <Search className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+          {/* Instant Search Bar */}
+          <div className="hidden md:flex flex-1 max-w-xl relative">
+            <Search className="w-4 h-4 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Suche nach Nr. (z.B. 15, 108, KSA19), Spieler, One Piece, Panini..."
-              className="w-full bg-white/5 border border-white/10 hover:border-white/20 focus:border-amber-400/70 focus:bg-white/[0.07] rounded-full pl-11 pr-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none transition"
+              placeholder="Suche nach Nummer (z.B. 50, 108, KSA19), Spieler, Serie oder Hersteller..."
+              className="w-full bg-[#0e1118] border border-zinc-800 focus:border-amber-400/80 rounded-xl pl-11 pr-9 py-2.5 text-sm text-white placeholder:text-zinc-500 outline-none transition"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="relative inline-flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-full bg-gradient-to-r from-amber-300 to-amber-500 hover:from-amber-200 hover:to-amber-400 text-slate-950 font-bold text-sm transition shadow-lg shadow-amber-500/25"
-          >
-            <ShoppingBag className="w-4 h-4" />
-            <span className="hidden sm:inline">Warenkorb</span>
-            <span className="min-w-6 h-6 px-1.5 inline-flex items-center justify-center text-xs rounded-full bg-slate-950 text-amber-400 font-extrabold">
-              {cart.reduce((sum, i) => sum + i.quantity, 0)}
-            </span>
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="relative inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-zinc-950 font-black text-xs sm:text-sm transition shadow-lg shadow-amber-500/15"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span className="hidden sm:inline">{formatEur(subtotal)}</span>
+              <span className="px-2 py-0.5 text-xs rounded-full bg-zinc-950 text-amber-400 font-black">
+                {mounted ? totalItemsInCart : 0}
+              </span>
+            </button>
+          </div>
         </div>
 
+        {/* Clean Secondary Navigation Menu */}
         <HeaderNav
           selectedType={selectedType}
           selectedCategory={selectedCategory}
@@ -173,107 +280,90 @@ export default function WosClientShell({ initialProducts }: { initialProducts: P
         />
       </header>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-slate-800/80 bg-gradient-to-b from-slate-900/50 to-[#07090e] py-12 sm:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 grid lg:grid-cols-12 gap-10 items-center">
-          <div className="lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
-              <span>✨ Willkommen bei WOS World of Stickers aus Hamburg</span>
+      {/* Hero Banner */}
+      <section className="relative overflow-hidden border-b border-zinc-800/80 bg-gradient-to-b from-[#0e121a] via-[#080a0f] to-[#06070a] py-10 sm:py-14">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
+          <div className="grid lg:grid-cols-12 gap-8 items-center">
+            <div className="lg:col-span-7 space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/25 text-amber-300 text-xs font-bold">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Original Panini &amp; Topps Einzelsticker-Shop Hamburg</span>
+              </div>
+              <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-[1.1]">
+                Kaufe genau deine{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500">
+                  fehlenden Sticker &amp; Karten
+                </span>
+              </h1>
+              <p className="text-zinc-300 text-sm sm:text-base leading-relaxed max-w-2xl">
+                Schluss mit doppelten Päckchen! Bei <strong>WOS World of Stickers</strong> wählst du direkt deine gesuchten Nummern aus. Jedes Einzelstück wird von Hand geprüft und geschützt im Sleeve versendet.
+              </p>
+              <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300">
+                  <Truck className="w-3.5 h-3.5 text-amber-400" /> 1,00 € Briefversand (Hamburg)
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Schutzhülle inklusive
+                </span>
+              </div>
             </div>
-            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-[1.12]">
-              Einzelsticker &amp; Sammelkarten kaufen –{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-sky-400">
-                ganz ohne ganze Päckchen!
-              </span>
-            </h1>
-            <p className="text-slate-300 text-base sm:text-lg leading-relaxed max-w-2xl">
-              Du suchst noch einen bestimmten Sticker für dein Sammelalbum oder dir fehlt eine Karte deiner Lieblingsmannschaft? Bei <strong>WOS World of Stickers</strong> packe ich jeden Panini &amp; Topps Booster selbst von Hand aus und schütze jedes Stück sofort im Sleeve.
-            </p>
 
-            <div className="grid sm:grid-cols-3 gap-3 pt-2">
-              <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-start gap-3">
-                <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs font-bold text-white">100% Original</div>
-                  <div className="text-xs text-slate-400">Frisch aus Panini &amp; Topps Boostern</div>
-                </div>
+            {/* Sticker- & Gap-Finder Widget */}
+            <div
+              id="sticker-finder"
+              className="lg:col-span-5 scroll-mt-36 bg-[#0c0f16] border border-amber-500/30 rounded-2xl p-5 sm:p-6 shadow-2xl shadow-amber-500/5 space-y-3.5"
+            >
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-amber-400 font-black text-xs uppercase tracking-wider">
+                  <Search className="w-4 h-4" /> Sticker- &amp; Karten-Finder
+                </span>
+                <span className="text-[11px] text-zinc-400">Kommagetrennt eingeben</span>
               </div>
-              <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-start gap-3">
-                <PackageCheck className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs font-bold text-white">Im Sleeve &amp; Toploader</div>
-                  <div className="text-xs text-slate-400">Knicksicher &amp; wasserfest verpackt</div>
-                </div>
-              </div>
-              <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-start gap-3">
-                <Truck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-xs font-bold text-white">1,00 € Wohlfühlversand</div>
-                  <div className="text-xs text-slate-400">Pauschal für Deutschland &amp; Europa</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Interactive Sticker- & Karten-Finder Widget */}
-          <div
-            id="sticker-finder"
-            className="scroll-mt-40 lg:col-span-5 bg-slate-900/90 border border-amber-500/40 rounded-2xl p-6 shadow-2xl shadow-amber-500/5 space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-2 text-amber-400 font-bold text-sm">
-                🔍 Sticker- &amp; Karten-Finder
-              </span>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20">
-                Sammellücken schließen
-              </span>
-            </div>
-            <h2 className="text-xl font-extrabold text-white">
-              Finde deine fehlenden Nummern sofort!
-            </h2>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Gib deine fehlenden Nummern durch Komma getrennt ein (z.B.{' '}
-              <code className="text-amber-300 font-mono">1, 15, 30, 50, 108, KSA19, 540</code>) – wir filtern dir sofort alle passenden Einzelsticker &amp; Karten heraus:
-            </p>
-            <div className="space-y-3">
-              <input
-                type="text"
+              <p className="text-xs text-zinc-300 leading-normal">
+                Kopiere deine Fehlstellen-Liste (z.B.{' '}
+                <code className="text-amber-300 font-mono">1, 15, 30, 50, 108, KSA19</code>) – wir filtern sofort alle Treffer heraus:
+              </p>
+              <textarea
                 value={gapFinderInput}
                 onChange={(e) => setGapFinderInput(e.target.value)}
-                placeholder="z.B. 15, 50, 108, KSA19, 540 ..."
-                className="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none font-mono"
+                placeholder="z.B. 1, 15, 30, 50, 108, 166, 177, 305, 307, 320, 372, 540..."
+                rows={3}
+                className="w-full bg-[#06070a] border border-zinc-800 focus:border-amber-400/80 rounded-xl p-3 text-xs sm:text-sm font-mono text-white placeholder:text-zinc-600 outline-none resize-none"
               />
-              <div className="flex items-center justify-between gap-2">
-                <button
-                  onClick={() => setGapFinderInput('15, 50, 108, KSA19, 540')}
-                  className="text-xs text-amber-400 hover:underline"
-                >
-                  ✨ Beispiel-Nummern testen
-                </button>
-                {gapFinderInput && (
-                  <button
-                    onClick={() => setGapFinderInput('')}
-                    className="text-xs text-slate-400 hover:text-white"
-                  >
-                    Filter zurücksetzen
-                  </button>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <span className="text-xs text-zinc-400">
+                  {gapNumbers.length > 0
+                    ? `${gapNumbers.length} Nummer(n) gesucht`
+                    : 'Alle Nummern verfügbar'}
+                </span>
+                {gapNumbers.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={addAllGapMatchesToCart}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-zinc-950 font-black text-xs transition"
+                    >
+                      Alle Treffer in Korb ({filteredProducts.length})
+                    </button>
+                    <button
+                      onClick={() => setGapFinderInput('')}
+                      className="text-xs text-zinc-400 hover:text-white underline"
+                    >
+                      Leeren
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
-            {gapNumbers.length > 0 && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200">
-                🎯 Es werden <strong>{filteredProducts.length}</strong> verfügbare Artikel für deine gesuchten Nummern ({gapNumbers.join(', ')}) angezeigt!
-              </div>
-            )}
           </div>
         </div>
       </section>
 
-      {/* Main Shop & Category Explorer */}
-      <main id="shop" className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-10 flex-1 grid lg:grid-cols-12 gap-8 scroll-mt-32">
-        {/* Sidebar Categories (Authentic WOS Collections) */}
-        <aside className="lg:col-span-3 space-y-6">
-          <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 space-y-3">
+      {/* Main Shop Explorer: Sidebar & Products */}
+      <main id="shop" className="max-w-[1400px] mx-auto w-full px-4 sm:px-6 py-8 flex-1 grid lg:grid-cols-12 gap-8 scroll-mt-32">
+        {/* Left Sidebar: Type & Dynamic Category Filters */}
+        <aside className="lg:col-span-3 space-y-5">
+          {/* Product Type Filter */}
+          <div className="bg-[#0c0f16] border border-zinc-800/80 rounded-2xl p-4 space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400">
               <Filter className="w-3.5 h-3.5" />
               <span>Produkttyp</span>
@@ -283,10 +373,10 @@ export default function WosClientShell({ initialProducts }: { initialProducts: P
                 <button
                   key={type}
                   onClick={() => setSelectedType(type)}
-                  className={`px-2.5 py-2 rounded-lg text-xs font-bold transition ${
+                  className={`py-2 px-1 rounded-xl text-xs font-bold transition text-center ${
                     selectedType === type
-                      ? 'bg-amber-400 text-slate-950'
-                      : 'bg-slate-950 text-slate-400 hover:text-white'
+                      ? 'bg-amber-400 text-zinc-950 shadow-md shadow-amber-400/20'
+                      : 'bg-[#06070a] text-zinc-400 hover:text-white border border-zinc-800/80'
                   }`}
                 >
                   {type === 'ALL' ? 'Alle' : type === 'Sticker' ? 'Sticker' : 'Karten'}
@@ -295,227 +385,274 @@ export default function WosClientShell({ initialProducts }: { initialProducts: P
             </div>
           </div>
 
-          <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 space-y-2">
-            <div className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">
-              Serien &amp; Kollektionen
+          {/* Dynamic Categories */}
+          <div className="bg-[#0c0f16] border border-zinc-800/80 rounded-2xl p-4 space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">
+              <span className="flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5" /> Kollektionen
+              </span>
+              <span className="text-[10px] text-zinc-500 font-mono">
+                {categoryStats.length}
+              </span>
             </div>
+
             <button
               onClick={() => setSelectedCategory('Alle Kollektionen')}
-              className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center justify-between ${
+              className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-between ${
                 selectedCategory === 'Alle Kollektionen'
-                  ? 'bg-amber-400 text-slate-950 font-bold'
-                  : 'text-slate-300 hover:bg-slate-800/60'
+                  ? 'bg-amber-400 text-zinc-950 font-bold'
+                  : 'text-zinc-300 hover:bg-zinc-800/50'
               }`}
             >
               <span>Alle Kollektionen</span>
-              <span className="text-[11px] opacity-80">{initialProducts.length}</span>
+              <span className="text-[10px] opacity-75 font-mono">{initialProducts.length}</span>
             </button>
-            <div className="space-y-1 max-h-[420px] overflow-y-auto pr-1">
-              {WOS_CATEGORIES.map((category) => (
+
+            <div className="space-y-1 max-h-[460px] overflow-y-auto pr-1">
+              {categoryStats.map(([category, count]) => (
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                  className={`w-full text-left px-3 py-2 rounded-xl text-xs transition ${
+                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs transition flex items-center justify-between gap-2 ${
                     selectedCategory === category
-                      ? 'bg-amber-400 text-slate-950 font-bold'
-                      : 'text-slate-300 hover:bg-slate-800/60'
+                      ? 'bg-amber-400 text-zinc-950 font-bold'
+                      : 'text-zinc-300 hover:bg-zinc-800/50'
                   }`}
                 >
-                  {category}
+                  <span className="truncate">{category}</span>
+                  <span className="text-[10px] opacity-75 font-mono shrink-0">{count}</span>
                 </button>
               ))}
             </div>
           </div>
         </aside>
 
-        {/* Product Grid */}
+        {/* Right Column: Toolbar, Card Grid & Pagination */}
         <section className="lg:col-span-9 space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900/50 border border-slate-800 rounded-2xl px-5 py-3.5">
+          {/* Control Bar */}
+          <div className="bg-[#0c0f16] border border-zinc-800/80 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-extrabold text-white">{selectedCategory}</h2>
-              <p className="text-xs text-slate-400">
-                Zeige {filteredProducts.length} handgeprüfte Einzelstücke (Bilder via Vercel Blob CDN)
+              <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                <span>{selectedCategory}</span>
+                <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20">
+                  {`${filteredProducts.length} Artikel`}
+                </span>
+              </h2>
+              <p className="text-xs text-zinc-400">
+                {`Seite ${currentPage} von ${totalPages} • Echte Live-Preise inkl. MwSt.`}
               </p>
             </div>
-            <div className="flex items-center gap-2 md:hidden w-full">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Nummer oder Name suchen..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white"
-              />
+
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              {/* Mobile search */}
+              <div className="md:hidden w-full">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Suche nach Nummer oder Name..."
+                  className="w-full bg-[#06070a] border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-white"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-zinc-400 ml-auto">
+                <ArrowUpDown className="w-3.5 h-3.5 text-amber-400" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  className="bg-[#06070a] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white font-semibold outline-none focus:border-amber-400"
+                >
+                  <option value="number-asc">Sortierung: Nummer (aufsteigend)</option>
+                  <option value="price-asc">Preis: Günstigste zuerst</option>
+                  <option value="price-desc">Preis: Höchste zuerst</option>
+                  <option value="title-asc">Name (A–Z)</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
-            <AnimatePresence mode="popLayout">
-              {filteredProducts.map((product) => (
-                <motion.div
-                  key={product.id}
-                  layout
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className="group bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 rounded-2xl overflow-hidden flex flex-col justify-between transition shadow-lg"
-                >
-                  <div>
-                    <Link
-                      href={`/product/${product.id}/${product.slug}`}
-                      className="block relative aspect-[3/4] bg-slate-950 overflow-hidden"
-                    >
-                      <img
-                        src={product.blobImageUrl}
-                        alt={product.title}
-                        className="w-full h-full object-contain p-4 group-hover:scale-105 transition duration-300"
-                      />
-                      <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                        <span className="px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-slate-950/90 text-amber-400 border border-amber-500/30">
-                          #{product.number}
-                        </span>
-                        <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-900/90 text-slate-200 border border-slate-700">
+          {/* Product Grid */}
+          {paginatedProducts.length === 0 ? (
+            <div className="bg-[#0c0f16] border border-zinc-800/80 rounded-2xl p-12 text-center space-y-3">
+              <p className="text-base font-bold text-white">
+                Keine passenden Sticker oder Karten für diesen Filter gefunden.
+              </p>
+              <button
+                onClick={() => {
+                  setSelectedCategory('Alle Kollektionen');
+                  setSelectedType('ALL');
+                  setSearchQuery('');
+                  setGapFinderInput('');
+                }}
+                className="px-4 py-2 rounded-xl bg-amber-400 text-zinc-950 font-black text-xs"
+              >
+                Alle Filter zurücksetzen
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+              {paginatedProducts.map((product) => {
+                const isAdded = justAddedId === product.id;
+                return (
+                  <div
+                    key={product.id}
+                    className="group bg-[#0c0f16] border border-zinc-800/90 hover:border-amber-400/60 rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-200 hover:shadow-xl hover:shadow-amber-500/5"
+                  >
+                    <div>
+                      {/* Collector Sleeve Image Box */}
+                      <Link
+                        href={`/product/${product.id}/${product.slug}`}
+                        className="block relative aspect-[3/4] bg-gradient-to-b from-[#121722] to-[#080a0f] p-3 overflow-hidden"
+                      >
+                        <img
+                          src={product.blobImageUrl}
+                          alt={product.title}
+                          loading="lazy"
+                          className="w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.65)] group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute top-2.5 left-2.5 flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded-md text-[11px] font-black bg-zinc-950/90 text-amber-400 border border-amber-400/30 font-mono">
+                            {`#${product.number}`}
+                          </span>
+                        </div>
+                        <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-900/90 text-zinc-300 border border-zinc-700/70">
                           {product.productType}
                         </span>
-                      </div>
-                    </Link>
-
-                    <div className="p-4 space-y-2">
-                      <div className="text-[11px] font-semibold text-amber-400/90 uppercase tracking-wider">
-                        {product.manufacturer} • {product.series}
-                      </div>
-                      <Link
-                        href={`/product/${product.id}/${product.slug}`}
-                        className="block text-base font-extrabold text-white group-hover:text-amber-300 transition"
-                      >
-                        {product.title}
                       </Link>
-                      <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        <span>{product.condition}</span>
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="p-4 pt-0 flex items-center justify-between gap-3 border-t border-slate-800/60 mt-2">
-                    <div>
-                      <span className="text-lg font-black text-white">
-                        {product.price.toFixed(2).replace('.', ',')} €
-                      </span>
-                      <span className="block text-[10px] text-slate-400">
-                        inkl. MwSt., zzgl. 1,00 € Versand
-                      </span>
+                      {/* Card Details */}
+                      <div className="p-3.5 space-y-1.5">
+                        <div className="text-[10px] font-bold text-amber-400/90 uppercase tracking-wider truncate">
+                          {`${product.manufacturer || 'Panini'} • ${product.series || ''}`}
+                        </div>
+                        <Link
+                          href={`/product/${product.id}/${product.slug}`}
+                          className="block text-xs sm:text-sm font-extrabold text-white group-hover:text-amber-300 transition line-clamp-2 min-h-[2.5rem]"
+                        >
+                          {product.title}
+                        </Link>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`/product/${product.id}/${product.slug}`}
-                        className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition"
-                      >
-                        Details
-                      </Link>
+                    {/* Price & Action Footer */}
+                    <div className="px-3.5 pb-3.5 pt-2 border-t border-zinc-800/60 flex items-center justify-between gap-2">
+                      <div>
+                        <span className="text-base sm:text-lg font-black text-white block leading-none">
+                          {formatEur(product.price)}
+                        </span>
+                        <span className="text-[10px] text-emerald-400 font-semibold">
+                          ● Auf Lager
+                        </span>
+                      </div>
+
                       <button
                         onClick={() => addToCart(product)}
-                        className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs transition"
+                        className={`px-3 py-2 rounded-xl font-black text-xs transition flex items-center gap-1 ${
+                          isAdded
+                            ? 'bg-emerald-400 text-zinc-950'
+                            : 'bg-amber-400 hover:bg-amber-300 text-zinc-950'
+                        }`}
                       >
-                        + In den Korb
+                        {isAdded ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" /> Im Korb
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5" /> Kaufen
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between bg-[#0c0f16] border border-zinc-800/80 rounded-2xl px-4 py-3">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 text-xs font-bold text-white transition"
+              >
+                <ChevronLeft className="w-4 h-4" /> Vorherige
+              </button>
+
+              <span className="text-xs text-zinc-400 font-mono">
+                {`Seite ${currentPage} von ${totalPages}`}
+              </span>
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 text-xs font-bold text-white transition"
+              >
+                Nächste <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </section>
       </main>
 
-      {/* Authentic WOS FAQ & Hamburg Collector Promise */}
-      <section id="faq" className="scroll-mt-32 border-t border-slate-800/80 bg-slate-900/30 py-14">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-10">
-          <div className="max-w-2xl space-y-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-amber-400">
-              Häufig gestellte Fragen (FAQ) &amp; Versand aus Hamburg
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-white">
-              Von Sammlerin für Sammler – 100% Original &amp; Knicksicher
-            </h2>
+      {/* Authentic WOS Collector Guarantees */}
+      <section id="faq" className="scroll-mt-32 border-t border-zinc-800/80 bg-[#090b10] py-12">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 grid md:grid-cols-3 gap-6">
+          <div className="bg-[#0c0f16] border border-zinc-800/80 rounded-2xl p-6 space-y-2">
+            <div className="text-amber-400 font-black text-xs uppercase tracking-wider flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" /> 100% Original &amp; Handgeprüft
+            </div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Jeder Sticker und jede Trading Card wird in Hamburg frisch aus Original-Boostern gezogen und direkt in einer Schutzhülle gelagert.
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-3">
-              <div className="text-amber-400 font-black text-sm">
-                1️⃣ WIE PACKST DU DIE STICKER &amp; KARTEN AUS?
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Ich packe jeden einzelnen Booster selbst aus – egal ob Panini Sticker, Topps Sticker oder Trading Cards. Direkt nach dem Auspacken wird jedes Produkt einzeln gescannt, auf Mint-Qualität geprüft und sofort in hochwertige Sleeves/Hüllen verpackt.
-              </p>
+          <div className="bg-[#0c0f16] border border-zinc-800/80 rounded-2xl p-6 space-y-2">
+            <div className="text-amber-400 font-black text-xs uppercase tracking-wider flex items-center gap-2">
+              <Truck className="w-4 h-4" /> 1,00 € Pauschalversand (DE &amp; EU)
             </div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Egal wie viele Einzelsticker oder Karten du kombinierst: Du zahlst nur einmalig 1,00 € für den knicksicheren Versand innerhalb Deutschlands &amp; Europas (5,00 € weltweit).
+            </p>
+          </div>
 
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-3">
-              <div className="text-amber-400 font-black text-sm">
-                2️⃣ WAS KOSTET DER VERSAND AUS HAMBURG?
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Ich arbeite mit klaren Pauschalpreisen ohne Überraschungen: <strong>1,00 € Briefversand für Deutschland &amp; ganz Europa</strong> (mein Wohlfühlpreis für alle Sammler) und <strong>5,00 € weltweit</strong> (USA, Kanada, Australien). Alles wird knicksicher mit Toploadern im Luftpolsterumschlag verschickt.
-              </p>
+          <div className="bg-[#0c0f16] border border-zinc-800/80 rounded-2xl p-6 space-y-2">
+            <div className="text-amber-400 font-black text-xs uppercase tracking-wider flex items-center gap-2">
+              <PackageCheck className="w-4 h-4" /> Mengenrabatt ab 20 Stück
             </div>
-
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-3">
-              <div className="text-amber-400 font-black text-sm">
-                3️⃣ GIBT ES RABATT BEI GROSSBESTELLUNGEN?
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Ja! Kombiniere beliebig viele Sticker &amp; Karten für nur einmalig 1,00 € Versand. Ab 20 Stickern/Karten mache ich dir gerne ein individuelles Sammler-Angebot per E-Mail an{' '}
-                <a href="mailto:info@wosworldofstickers.de" className="text-amber-400 underline">
-                  info@wosworldofstickers.de
-                </a>
-                .
-              </p>
-            </div>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Große Sammelliste? Schreib uns an{' '}
+              <a href="mailto:info@wosworldofstickers.de" className="text-amber-400 underline">
+                info@wosworldofstickers.de
+              </a>{' '}
+              für ein individuelles Komplettangebot.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* Legal Footer (Impressum & Contact from wosworldofstickers.de) */}
-      <footer className="border-t border-slate-800 bg-[#05070b] py-10 text-xs text-slate-400">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 grid sm:grid-cols-3 gap-8">
-          <div className="space-y-2">
-            <div className="text-white font-black text-sm">WOS World of Stickers</div>
-            <p>Michaela Schulze Stohr</p>
-            <p className="flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-amber-400" />
-              Sonninstr. 18e, 20097 Hamburg, Deutschland
-            </p>
-            <p className="flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-amber-400" />
-              info@wosworldofstickers.de
-            </p>
-            <p>USt-IdNr.: DE 360644666</p>
+      {/* Footer */}
+      <footer className="border-t border-zinc-900 bg-[#050608] py-8 text-xs text-zinc-500">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="text-white font-bold">
+              WOS World of Stickers • Michaela Schulze Stohr
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-amber-400" /> Sonninstr. 18e, 20097 Hamburg
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Mail className="w-3.5 h-3.5 text-amber-400" /> info@wosworldofstickers.de
+              </span>
+              <span>USt-IdNr.: DE 360644666</span>
+            </div>
           </div>
-
-          <div className="space-y-2">
-            <div className="text-white font-bold text-sm">Beliebte Kollektionen</div>
-            <ul className="space-y-1">
-              <li>Panini FIFA World Cup WM 2026 &amp; WM 2022</li>
-              <li>Panini Adrenalyn XL Fifa 365 2026/27 Golden Elite</li>
-              <li>Topps Champions League &amp; Premier League 2026/27</li>
-              <li>One Piece, Naruto &amp; Star Wars Unlimited</li>
-              <li>Panini Stitch Scrap Book 2026 &amp; Donald Duck 90 Jahre</li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-white font-bold text-sm">Rechtliches &amp; Verwaltung</div>
-            <ul className="space-y-1.5">
-              <li>14 Tage gesetzliches Widerrufsrecht</li>
-              <li>Zahlung via PayPal &amp; Mollie</li>
-              <li>
-                <Link href="/admin" className="text-amber-400 hover:underline inline-flex items-center gap-1">
-                  Zum Vercel Blob Admin-Portal (/admin) <ArrowRight className="w-3 h-3" />
-                </Link>
-              </li>
-            </ul>
-          </div>
+          <Link href="/admin" className="text-amber-400 hover:underline font-semibold">
+            Admin &amp; Vercel Blob Registry →
+          </Link>
         </div>
       </footer>
 
@@ -528,69 +665,72 @@ export default function WosClientShell({ initialProducts }: { initialProducts: P
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsCartOpen(false)}
-              className="fixed inset-0 bg-black/70 z-40 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/75 z-40 backdrop-blur-sm"
             />
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 250 }}
-              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-slate-950 border-l border-slate-800 z-50 p-6 flex flex-col justify-between"
+              transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-[#090b10] border-l border-zinc-800 z-50 p-6 flex flex-col justify-between"
             >
-              <div className="space-y-5 overflow-y-auto pr-1">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="space-y-4 overflow-y-auto pr-1">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
                   <div>
-                    <h3 className="text-lg font-black text-white">Dein Sammler-Warenkorb</h3>
-                    <p className="text-xs text-slate-400">
+                    <h3 className="text-lg font-black text-white">{`Warenkorb (${totalItemsInCart})`}</h3>
+                    <p className="text-xs text-zinc-400">
                       Knicksicher im Sleeve &amp; Toploader aus Hamburg
                     </p>
                   </div>
                   <button
                     onClick={() => setIsCartOpen(false)}
-                    className="p-2 rounded-lg bg-slate-900 text-slate-400 hover:text-white"
+                    className="p-2 rounded-lg bg-zinc-900 text-zinc-400 hover:text-white"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
                 {cart.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 text-sm">
-                    Dein Warenkorb ist noch leer. Stöbere durch unsere Einzelsticker &amp; Karten!
+                  <div className="text-center py-14 text-zinc-500 text-sm">
+                    Dein Warenkorb ist noch leer.
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {cart.map(({ product, quantity }) => (
                       <div
                         key={product.id}
-                        className="flex items-center justify-between gap-3 bg-slate-900/90 border border-slate-800 rounded-xl p-3"
+                        className="flex items-center justify-between gap-3 bg-[#0e121a] border border-zinc-800/80 rounded-xl p-2.5"
                       >
                         <img
                           src={product.blobImageUrl}
                           alt={product.title}
-                          className="w-12 h-16 object-contain bg-slate-950 rounded-lg p-1"
+                          className="w-12 h-16 object-contain bg-zinc-950 rounded-lg p-1 shrink-0"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-bold text-white truncate">
                             {product.title}
                           </div>
-                          <div className="text-[11px] text-slate-400 truncate">
-                            {product.series}
+                          <div className="text-[11px] text-zinc-400 truncate">
+                            {`#${product.number} • ${formatEur(product.price)} / Stück`}
                           </div>
-                          <div className="text-xs font-extrabold text-amber-400 mt-0.5">
-                            {(product.price * quantity).toFixed(2).replace('.', ',')} €
+                          <div className="text-xs font-black text-amber-400 mt-0.5">
+                            {formatEur(product.price * quantity)}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
+
+                        <div className="flex items-center gap-1.5 bg-zinc-900 rounded-lg p-1 border border-zinc-800 shrink-0">
                           <button
                             onClick={() => updateCartQty(product.id, -1)}
-                            className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-white"
+                            className="p-1 hover:text-amber-400 transition"
                           >
                             <Minus className="w-3 h-3" />
                           </button>
-                          <span className="text-xs font-bold w-5 text-center">{quantity}</span>
+                          <span className="w-5 text-center text-xs font-bold text-white font-mono">
+                            {quantity}
+                          </span>
                           <button
                             onClick={() => updateCartQty(product.id, 1)}
-                            className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-white"
+                            className="p-1 hover:text-amber-400 transition"
                           >
                             <Plus className="w-3 h-3" />
                           </button>
@@ -601,60 +741,54 @@ export default function WosClientShell({ initialProducts }: { initialProducts: P
                 )}
               </div>
 
-              <div className="border-t border-slate-800 pt-4 space-y-4">
-                <div className="space-y-2 text-xs">
-                  <label className="block text-slate-400 font-semibold">Versandzone wählen:</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setShippingZone('DE_EU')}
-                      className={`p-2 rounded-lg border text-left ${
-                        shippingZone === 'DE_EU'
-                          ? 'border-amber-400 bg-amber-400/10 text-white font-bold'
-                          : 'border-slate-800 text-slate-400'
-                      }`}
-                    >
-                      DE &amp; EU: 1,00 €
-                    </button>
-                    <button
-                      onClick={() => setShippingZone('WORLD')}
-                      className={`p-2 rounded-lg border text-left ${
-                        shippingZone === 'WORLD'
-                          ? 'border-amber-400 bg-amber-400/10 text-white font-bold'
-                          : 'border-slate-800 text-slate-400'
-                      }`}
-                    >
-                      Weltweit: 5,00 €
-                    </button>
-                  </div>
+              {/* Drawer Checkout Footer */}
+              <div className="border-t border-zinc-800 pt-4 space-y-4">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    onClick={() => setShippingZone('DE_EU')}
+                    className={`p-2.5 rounded-xl border text-left ${
+                      shippingZone === 'DE_EU'
+                        ? 'border-amber-400 bg-amber-400/10 text-white font-bold'
+                        : 'border-zinc-800 text-zinc-400'
+                    }`}
+                  >
+                    DE &amp; EU: 1,00 €
+                  </button>
+                  <button
+                    onClick={() => setShippingZone('WORLD')}
+                    className={`p-2.5 rounded-xl border text-left ${
+                      shippingZone === 'WORLD'
+                        ? 'border-amber-400 bg-amber-400/10 text-white font-bold'
+                        : 'border-zinc-800 text-zinc-400'
+                    }`}
+                  >
+                    Weltweit: 5,00 €
+                  </button>
                 </div>
 
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between text-slate-400 text-xs">
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between text-zinc-400">
                     <span>Zwischensumme</span>
-                    <span>{subtotal.toFixed(2).replace('.', ',')} €</span>
+                    <span>{formatEur(subtotal)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-400 text-xs">
-                    <span>Knicksicherer Briefversand (Hamburg)</span>
-                    <span>{shippingCost.toFixed(2).replace('.', ',')} €</span>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Versand (Hamburg)</span>
+                    <span>{formatEur(shippingCost)}</span>
                   </div>
                   <div className="flex justify-between text-white font-black text-base pt-1">
-                    <span>Gesamtsumme</span>
-                    <span className="text-amber-400">{total.toFixed(2).replace('.', ',')} €</span>
+                    <span>Gesamtbetrag</span>
+                    <span className="text-amber-400">{formatEur(total)}</span>
                   </div>
                 </div>
 
                 <button
                   disabled={cart.length === 0}
                   onClick={() =>
-                    alert(
-                      `Vielen Dank für deine Bestellung bei WOS World of Stickers (${total
-                        .toFixed(2)
-                        .replace('.', ',')} €)!`
-                    )
+                    alert(`Bestellung über ${formatEur(total)} bereit zur Zahlung!`)
                   }
-                  className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-slate-950 font-black text-sm transition"
+                  className="w-full py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-zinc-950 font-black text-xs sm:text-sm transition"
                 >
-                  Jetzt sicher bestellen (PayPal / Mollie)
+                  {`Zur Kasse (${formatEur(total)})`}
                 </button>
               </div>
             </motion.div>

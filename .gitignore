@@ -40,5 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# image extraction log
+# image extraction log & caches
 extract-images.log
+src/data/sitemap-urls.json
+src/data/image-failures.json
