@@ -61,10 +61,12 @@ export default function SiteHeader({
       <header className="sticky top-0 z-30 backdrop-blur-2xl bg-[#06070a]/90 border-b border-zinc-800/80 shadow-xl shadow-black/40">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-3.5 group shrink-0">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 p-[1px] shadow-lg shadow-amber-500/15 group-hover:rotate-[-3deg] transition">
-              <div className="w-full h-full bg-[#090b10] rounded-[11px] flex items-center justify-center font-black text-amber-400 text-base tracking-tighter group-hover:bg-transparent group-hover:text-black transition">
-                WOS
-              </div>
+            <div className="w-11 h-11 rounded-xl overflow-hidden border border-amber-400/40 shadow-lg shadow-amber-500/20 group-hover:scale-105 transition-transform duration-200 shrink-0">
+              <img
+                src="/wos-badge.png"
+                alt="WOS World of Stickers Logo"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div>
               <span className="text-base sm:text-lg font-black tracking-tight text-white block leading-none">
