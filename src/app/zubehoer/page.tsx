@@ -1,8 +1,8 @@
 // src/app/zubehoer/page.tsx
 import React from 'react';
 import type { Metadata } from 'next';
-import { getProducts } from '@/lib/catalog.server';
-import { isProductInParentCategory } from '@/lib/categories';
+import { getCatalogSnapshot } from '@/lib/catalog.server';
+import { isProductInParentCategory, WOS_MAIN_CATEGORIES } from '@/lib/categories';
 import SiteShell from '@/components/SiteShell';
 import ProductCatalogView from '@/components/ProductCatalogView';
 
@@ -14,16 +14,34 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function ZubehoerPage() {
-  const allProducts = getProducts();
-  const zubehoerProducts = allProducts.filter((p) =>
+export default async function ZubehoerPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ sub?: string; q?: string }>;
+}) {
+  const { products, categoryCounts, totalCount } = getCatalogSnapshot();
+  const resolvedParams = await searchParams;
+  const subSlug = resolvedParams?.sub;
+
+  const zubehoerProducts = products.filter((p) =>
     isProductInParentCategory(p, 'zubehoer')
   );
 
+  const categoryDef = WOS_MAIN_CATEGORIES.find((c) => c.slug === 'zubehoer');
+  const subcategoryOptions = (categoryDef?.subcategories || []).map((sub) => ({
+    title: sub.title,
+    slug: sub.slug,
+    count: categoryCounts.sub[sub.slug] ?? 0,
+    keywords: sub.keywords,
+  }));
+
   return (
-    <SiteShell totalProductsCount={allProducts.length}>
+    <SiteShell totalProductsCount={totalCount} categoryCounts={categoryCounts}>
       <ProductCatalogView
         initialProducts={zubehoerProducts}
+        subcategories={subcategoryOptions}
+        initialSubSlug={subSlug}
+        initialSearchQuery={resolvedParams?.q || ''}
         pageTitle="Sammler-Zubehör & Schutzhüllen"
         pageSubtitle="Optimaler Schutz für deine wertvollsten Sticker und Trading Cards. Von passgenauen Penny Sleeves und formstabilen Ultra Pro Toploadern bis hin zu hochwertigen Reißverschluss-Sammelordnern."
       />

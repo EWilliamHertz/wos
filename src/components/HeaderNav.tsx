@@ -18,12 +18,52 @@ import {
   Flame,
   Info,
 } from 'lucide-react';
-import { WOS_MAIN_CATEGORIES } from '@/lib/categories';
+import { WOS_MAIN_CATEGORIES, type CategoryCounts } from '@/lib/categories';
 
-export default function HeaderNav() {
+export default function HeaderNav({
+  categoryCounts: initialCategoryCounts,
+}: {
+  categoryCounts?: CategoryCounts;
+}) {
   const pathname = usePathname();
   const [activeMenuSlug, setActiveMenuSlug] = useState<string | null>(null);
+  const [counts, setCounts] = useState<CategoryCounts | undefined>(initialCategoryCounts);
   const navRef = useRef<HTMLDivElement>(null);
+
+  // Sync initialCategoryCounts if prop updates
+  useEffect(() => {
+    if (initialCategoryCounts) {
+      setCounts(initialCategoryCounts);
+    }
+  }, [initialCategoryCounts]);
+
+  // Periodically refresh category counts to capture live scraper additions
+  useEffect(() => {
+    let active = true;
+    const fetchCounts = async () => {
+      try {
+        const res = await fetch('/api/categories');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (active && data.counts) {
+          setCounts(data.counts);
+        }
+      } catch {
+        // Ignore network hiccups
+      }
+    };
+
+    // If initial counts were missing, fetch immediately
+    if (!initialCategoryCounts) {
+      fetchCounts();
+    }
+
+    const interval = setInterval(fetchCounts, 30000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [initialCategoryCounts]);
 
   // Close menus on outside click or Escape
   useEffect(() => {
@@ -69,6 +109,13 @@ export default function HeaderNav() {
     }
   };
 
+  // Filter main categories: hide categories with 0 items, but preserve designated slot order
+  const visibleCategories = WOS_MAIN_CATEGORIES.filter((cat) => {
+    if (!counts) return true;
+    const catCount = counts.main[cat.slug] ?? 0;
+    return catCount > 0;
+  });
+
   return (
     <nav ref={navRef} aria-label="Hauptkategorien Navigation" className="border-t border-white/5 bg-[#080a0f]/80">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
@@ -82,12 +129,16 @@ export default function HeaderNav() {
             <span>Alle Artikel</span>
           </Link>
 
-          {/* Main Parent Categories */}
-          {WOS_MAIN_CATEGORIES.map((cat) => {
+          {/* Main Parent Categories (Dynamically hidden if count === 0, slot order preserved) */}
+          {visibleCategories.map((cat) => {
             const Icon = getIconForCategory(cat.slug);
             const isCurrentPage = pathname === cat.href || pathname.startsWith(`${cat.href}/`);
             const isMenuOpen = activeMenuSlug === cat.slug;
-            const hasSubcats = cat.subcategories && cat.subcategories.length > 0;
+            const visibleSubcategories = (cat.subcategories || []).filter((sub) => {
+              if (!counts) return true;
+              return (counts.sub[sub.slug] ?? 0) > 0;
+            });
+            const hasSubcats = visibleSubcategories.length > 0;
 
             return (
               <div key={cat.slug} className="relative inline-flex items-center shrink-0">
@@ -126,7 +177,7 @@ export default function HeaderNav() {
 
                 {/* Subcategory Dropdown */}
                 <AnimatePresence>
-                  {isMenuOpen && (
+                  {isMenuOpen && hasSubcats && (
                     <motion.div
                       initial={{ opacity: 0, y: -4, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -135,9 +186,16 @@ export default function HeaderNav() {
                       className="fixed sm:absolute left-3 right-3 sm:left-0 sm:right-auto top-auto sm:top-full mt-2.5 sm:w-80 z-50 rounded-2xl border border-white/10 bg-[#090b10]/95 backdrop-blur-2xl p-3.5 shadow-2xl shadow-black/80"
                     >
                       <div className="flex items-center justify-between px-2 pb-2.5 mb-2 border-b border-white/10">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
-                          {cat.title}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
+                            {cat.title}
+                          </span>
+                          {counts?.main[cat.slug] !== undefined && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-400/10 text-amber-300 font-mono">
+                              {counts.main[cat.slug]}
+                            </span>
+                          )}
+                        </div>
                         <Link
                           href={cat.href}
                           onClick={() => setActiveMenuSlug(null)}
@@ -148,16 +206,24 @@ export default function HeaderNav() {
                       </div>
 
                       <div className="space-y-1">
-                        {cat.subcategories.map((sub) => (
-                          <Link
-                            key={sub.slug}
-                            href={`${cat.href}?sub=${sub.slug}`}
-                            onClick={() => setActiveMenuSlug(null)}
-                            className="block px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:bg-white/5 hover:text-amber-300 transition"
-                          >
-                            {sub.title}
-                          </Link>
-                        ))}
+                        {visibleSubcategories.map((sub) => {
+                          const subCount = counts?.sub[sub.slug];
+                          return (
+                            <Link
+                              key={sub.slug}
+                              href={`${cat.href}?sub=${sub.slug}`}
+                              onClick={() => setActiveMenuSlug(null)}
+                              className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:bg-white/5 hover:text-amber-300 transition group"
+                            >
+                              <span>{sub.title}</span>
+                              {typeof subCount === 'number' && (
+                                <span className="text-[10px] font-mono text-zinc-500 group-hover:text-amber-400">
+                                  {subCount}
+                                </span>
+                              )}
+                            </Link>
+                          );
+                        })}
                       </div>
                     </motion.div>
                   )}

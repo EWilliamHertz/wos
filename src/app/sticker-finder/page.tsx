@@ -1,7 +1,7 @@
 // src/app/sticker-finder/page.tsx
 import React from 'react';
 import type { Metadata } from 'next';
-import { getProducts } from '@/lib/catalog.server';
+import { getCatalogSnapshot } from '@/lib/catalog.server';
 import SiteShell from '@/components/SiteShell';
 import StickerFinderTool from './StickerFinderTool';
 
@@ -14,11 +14,11 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default function StickerFinderPage() {
-  const allProducts = getProducts();
+  const { products, categoryCounts, totalCount } = getCatalogSnapshot();
 
   return (
-    <SiteShell totalProductsCount={allProducts.length}>
-      <StickerFinderTool products={allProducts} />
+    <SiteShell totalProductsCount={totalCount} categoryCounts={categoryCounts}>
+      <StickerFinderTool products={products} />
     </SiteShell>
   );
 }

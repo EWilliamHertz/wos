@@ -13,7 +13,7 @@ import {
   Camera,
   ShoppingBag,
 } from 'lucide-react';
-import { getProducts } from '@/lib/catalog.server';
+import { getCatalogSnapshot } from '@/lib/catalog.server';
 import SiteShell from '@/components/SiteShell';
 
 export const metadata: Metadata = {
@@ -25,10 +25,10 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default function UeberUnsPage() {
-  const allProducts = getProducts();
+  const { categoryCounts, totalCount } = getCatalogSnapshot();
 
   return (
-    <SiteShell totalProductsCount={allProducts.length}>
+    <SiteShell totalProductsCount={totalCount} categoryCounts={categoryCounts}>
       <div className="space-y-12 max-w-4xl mx-auto">
         {/* Banner */}
         <div className="bg-[#0c0f16] border border-zinc-800/80 rounded-3xl p-6 sm:p-10 space-y-4 shadow-2xl">

@@ -11,7 +11,7 @@ import {
   ExternalLink,
   Sparkles,
 } from 'lucide-react';
-import { getProducts } from '@/lib/catalog.server';
+import { getProducts, getCatalogSnapshot } from '@/lib/catalog.server';
 import { formatEur } from '@/lib/catalog';
 import SiteShell from '@/components/SiteShell';
 import ProductAddButton from './ProductAddButton';
@@ -43,7 +43,7 @@ export default async function ProductDetailPage({
   params: Promise<{ id: string; slug: string }>;
 }) {
   const { id } = await params;
-  const products = getProducts();
+  const { products, categoryCounts, totalCount } = getCatalogSnapshot();
   const product = products.find((p) => p.id === id);
 
   if (!product) {
@@ -55,7 +55,7 @@ export default async function ProductDetailPage({
     .slice(0, 4);
 
   return (
-    <SiteShell totalProductsCount={products.length}>
+    <SiteShell totalProductsCount={totalCount} categoryCounts={categoryCounts}>
       <div className="space-y-10 max-w-5xl mx-auto">
         <div className="flex items-center justify-between gap-4">
           <Link

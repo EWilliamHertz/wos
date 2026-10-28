@@ -13,8 +13,15 @@ import {
 import HeaderNav from './HeaderNav';
 import { useCart } from '@/context/CartContext';
 import { formatEur } from '@/lib/catalog';
+import type { CategoryCounts } from '@/lib/categories';
 
-export default function SiteHeader({ totalProductsCount }: { totalProductsCount?: number }) {
+export default function SiteHeader({
+  totalProductsCount,
+  categoryCounts,
+}: {
+  totalProductsCount?: number;
+  categoryCounts?: CategoryCounts;
+}) {
   const router = useRouter();
   const { subtotal, totalItemsInCart, setIsCartOpen, mounted } = useCart();
   const [searchInput, setSearchInput] = useState('');
@@ -106,7 +113,7 @@ export default function SiteHeader({ totalProductsCount }: { totalProductsCount?
         </div>
 
         {/* Navigation Tabs */}
-        <HeaderNav />
+        <HeaderNav categoryCounts={categoryCounts} />
       </header>
     </>
   );

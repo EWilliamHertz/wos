@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft } from 'lucide-react';
-import { getProducts } from '@/lib/catalog.server';
+import { getProducts, getCatalogSnapshot } from '@/lib/catalog.server';
 import SiteShell from '@/components/SiteShell';
 import ProductCatalogView from '@/components/ProductCatalogView';
 
@@ -39,7 +39,7 @@ export default async function SingleKollektionPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const allProducts = getProducts();
+  const { products: allProducts, categoryCounts, totalCount } = getCatalogSnapshot();
 
   // Find category matching the slug
   const match = allProducts.find(
@@ -56,7 +56,7 @@ export default async function SingleKollektionPage({
   );
 
   return (
-    <SiteShell totalProductsCount={allProducts.length}>
+    <SiteShell totalProductsCount={totalCount} categoryCounts={categoryCounts}>
       <div className="space-y-6">
         <Link
           href="/kollektionen"

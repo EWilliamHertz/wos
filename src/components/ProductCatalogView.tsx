@@ -13,10 +13,18 @@ import {
   Plus,
   Check,
   X,
+  Package,
 } from 'lucide-react';
 import type { Product } from '@/lib/catalog';
 import { formatEur } from '@/lib/catalog';
 import { useCart } from '@/context/CartContext';
+
+export interface SubcategoryOption {
+  title: string;
+  slug: string;
+  count: number;
+  keywords?: string[];
+}
 
 interface ProductCatalogViewProps {
   initialProducts: Product[];
@@ -25,6 +33,8 @@ interface ProductCatalogViewProps {
   pageTitle?: string;
   pageSubtitle?: string;
   initialSearchQuery?: string;
+  subcategories?: SubcategoryOption[];
+  initialSubSlug?: string;
 }
 
 const ITEMS_PER_PAGE = 36;
@@ -36,19 +46,27 @@ export default function ProductCatalogView({
   pageTitle,
   pageSubtitle,
   initialSearchQuery = '',
+  subcategories = [],
+  initialSubSlug,
 }: ProductCatalogViewProps) {
   const { addToCart, addMultipleToCart } = useCart();
   const [selectedCategory, setSelectedCategory] = useState<string>(fixedCategory);
   const [selectedType, setSelectedType] = useState<'ALL' | 'Sticker' | 'Tradingcard'>(fixedType);
+  const [selectedSubSlug, setSelectedSubSlug] = useState<string | null>(initialSubSlug || null);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [gapFinderInput, setGapFinderInput] = useState('');
   const [sortBy, setSortBy] = useState<'number-asc' | 'price-asc' | 'price-desc' | 'title-asc'>('number-asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
 
+  // Filter subcategories: hide empty ones, preserve designated slot order
+  const activeSubcategories = useMemo(() => {
+    return subcategories.filter((s) => s.count > 0);
+  }, [subcategories]);
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategory, selectedType, searchQuery, gapFinderInput, sortBy]);
+  }, [selectedCategory, selectedType, selectedSubSlug, searchQuery, gapFinderInput, sortBy]);
 
   // Dynamically compute categories & counts from products
   const categoryStats = useMemo(() => {
@@ -102,6 +120,16 @@ export default function ProductCatalogView({
         return false;
       }
 
+      // Subcategory match
+      if (selectedSubSlug && activeSubcategories.length > 0) {
+        const chosenSub = activeSubcategories.find((s) => s.slug === selectedSubSlug);
+        if (chosenSub && chosenSub.keywords && chosenSub.keywords.length > 0) {
+          const text = `${product.category} ${product.series} ${product.title} ${product.manufacturer}`.toLowerCase();
+          const matchesSub = chosenSub.keywords.some((kw) => text.includes(kw.toLowerCase()));
+          if (!matchesSub) return false;
+        }
+      }
+
       return true;
     });
 
@@ -122,7 +150,18 @@ export default function ProductCatalogView({
       }
       return a.id.localeCompare(b.id);
     });
-  }, [initialProducts, fixedType, selectedType, fixedCategory, selectedCategory, searchQuery, gapNumbers, sortBy]);
+  }, [
+    initialProducts,
+    fixedType,
+    selectedType,
+    fixedCategory,
+    selectedCategory,
+    selectedSubSlug,
+    activeSubcategories,
+    searchQuery,
+    gapNumbers,
+    sortBy,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
   const paginatedProducts = useMemo(() => {
@@ -150,8 +189,82 @@ export default function ProductCatalogView({
         </div>
       )}
 
-      {/* Main Grid: Sidebar + Products */}
-      <div className="grid lg:grid-cols-12 gap-8 items-start">
+      {/* Subcategory Filter Pills (Only populated categories/subcategories are rendered) */}
+      {activeSubcategories.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 shrink-0 mr-1 flex items-center gap-1.5">
+            <Filter className="w-3.5 h-3.5 text-amber-400" /> Filter:
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedSubSlug(null)}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
+              !selectedSubSlug
+                ? 'bg-amber-400 text-zinc-950 shadow-md shadow-amber-400/20'
+                : 'bg-[#0c0f16] text-zinc-300 hover:text-white border border-zinc-800'
+            }`}
+          >
+            Alle ({initialProducts.length})
+          </button>
+          {activeSubcategories.map((sub) => {
+            const isSelected = selectedSubSlug === sub.slug;
+            return (
+              <button
+                key={sub.slug}
+                type="button"
+                onClick={() => setSelectedSubSlug(isSelected ? null : sub.slug)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-amber-400 text-zinc-950 shadow-md shadow-amber-400/20'
+                    : 'bg-[#0c0f16] text-zinc-300 hover:text-white border border-zinc-800'
+                }`}
+              >
+                <span>{sub.title}</span>
+                <span
+                  className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                    isSelected ? 'bg-zinc-950 text-amber-300' : 'bg-zinc-800 text-zinc-400'
+                  }`}
+                >
+                  {sub.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* When initial category is empty (e.g. pending stock/extraction) */}
+      {initialProducts.length === 0 ? (
+        <div className="bg-[#0c0f16] border border-zinc-800/80 rounded-3xl p-10 sm:p-14 text-center max-w-2xl mx-auto space-y-5 my-8">
+          <div className="w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/25 flex items-center justify-center mx-auto text-amber-400">
+            <Package className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl sm:text-2xl font-black text-white">
+              Zurzeit keine Artikel auf Lager
+            </h3>
+            <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed max-w-md mx-auto">
+              Unser Sammlerbestand an originalen Einzelstücken wird kontinuierlich erweitert. Sobald neue Lieferungen eintreffen, findest du sie direkt hier!
+            </p>
+          </div>
+          <div className="pt-2 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/"
+              className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black text-xs transition"
+            >
+              Alle verfügbaren Artikel ansehen →
+            </Link>
+            <Link
+              href="/kollektionen"
+              className="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 text-xs font-bold transition"
+            >
+              Andere Kollektionen durchstöbern
+            </Link>
+          </div>
+        </div>
+      ) : (
+        /* Main Grid: Sidebar + Products */
+        <div className="grid lg:grid-cols-12 gap-8 items-start">
         {/* Sidebar */}
         <aside className="lg:col-span-3 space-y-5">
           {/* Product Type Filter (if not fixed) */}
@@ -422,6 +535,7 @@ export default function ProductCatalogView({
           )}
         </section>
       </div>
+      )}
     </div>
   );
 }

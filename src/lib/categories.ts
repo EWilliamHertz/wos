@@ -17,6 +17,11 @@ export interface MainCategory {
   subcategories: SubCategory[];
 }
 
+export interface CategoryCounts {
+  main: Record<string, number>;
+  sub: Record<string, number>;
+}
+
 export const WOS_MAIN_CATEGORIES: MainCategory[] = [
   {
     title: 'Sammelsticker',
@@ -43,7 +48,7 @@ export const WOS_MAIN_CATEGORIES: MainCategory[] = [
       {
         title: 'American Football Sticker',
         slug: 'american-football-sticker',
-        keywords: ['nfl sticker', 'football sticker'],
+        keywords: ['nfl', 'american football', 'football', 'super bowl'],
       },
       {
         title: 'Basketball Sticker',
@@ -258,4 +263,34 @@ export function isProductInParentCategory(product: Product, parentSlug: string):
     default:
       return true;
   }
+}
+
+export function isProductInSubcategory(
+  product: Product,
+  parentSlug: string,
+  subKeywords: string[]
+): boolean {
+  if (!isProductInParentCategory(product, parentSlug)) return false;
+  if (!subKeywords || subKeywords.length === 0) return true;
+  const combined = `${product.category} ${product.series} ${product.title} ${product.manufacturer}`.toLowerCase();
+  return subKeywords.some((kw) => combined.includes(kw.toLowerCase()));
+}
+
+export function calculateCategoryCounts(products: Product[]): CategoryCounts {
+  const main: Record<string, number> = {};
+  const sub: Record<string, number> = {};
+
+  for (const cat of WOS_MAIN_CATEGORIES) {
+    const matchingInMain = products.filter((p) => isProductInParentCategory(p, cat.slug));
+    main[cat.slug] = matchingInMain.length;
+
+    for (const subcat of cat.subcategories) {
+      const matchingInSub = matchingInMain.filter((p) =>
+        isProductInSubcategory(p, cat.slug, subcat.keywords)
+      );
+      sub[subcat.slug] = matchingInSub.length;
+    }
+  }
+
+  return { main, sub };
 }

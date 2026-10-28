@@ -3,7 +3,7 @@ import React from 'react';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Layers, ArrowRight, Sparkles } from 'lucide-react';
-import { getProducts } from '@/lib/catalog.server';
+import { getCatalogSnapshot } from '@/lib/catalog.server';
 import SiteShell from '@/components/SiteShell';
 
 export const metadata: Metadata = {
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default function KollektionenOverviewPage() {
-  const allProducts = getProducts();
+  const { products: allProducts, categoryCounts, totalCount } = getCatalogSnapshot();
 
   // Group products by collection/category
   const collectionMap = new Map<
@@ -58,7 +58,7 @@ export default function KollektionenOverviewPage() {
   const collections = Array.from(collectionMap.values()).sort((a, b) => b.count - a.count);
 
   return (
-    <SiteShell totalProductsCount={allProducts.length}>
+    <SiteShell totalProductsCount={totalCount} categoryCounts={categoryCounts}>
       <div className="space-y-8">
         {/* Banner */}
         <div className="bg-[#0c0f16] border border-zinc-800/80 rounded-3xl p-6 sm:p-10 space-y-3">

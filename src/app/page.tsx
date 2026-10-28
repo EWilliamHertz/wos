@@ -2,21 +2,22 @@
 import React from 'react';
 import Link from 'next/link';
 import { Sparkles, Truck, ShieldCheck, Search } from 'lucide-react';
-import { getProducts } from '@/lib/catalog.server';
+import { getCatalogSnapshot } from '@/lib/catalog.server';
 import SiteShell from '@/components/SiteShell';
 import ProductCatalogView from '@/components/ProductCatalogView';
 
 export const dynamic = 'force-dynamic';
 
-export default function HomePage({
+export default async function HomePage({
   searchParams,
 }: {
   searchParams?: Promise<{ q?: string }>;
 }) {
-  const products = getProducts();
+  const { products, categoryCounts, totalCount } = getCatalogSnapshot();
+  const resolvedParams = await searchParams;
 
   return (
-    <SiteShell totalProductsCount={products.length}>
+    <SiteShell totalProductsCount={totalCount} categoryCounts={categoryCounts}>
       <div className="space-y-10">
         {/* Hero Section */}
         <section className="relative overflow-hidden border border-zinc-800/80 rounded-3xl bg-gradient-to-b from-[#0e121a] via-[#080a0f] to-[#06070a] p-6 sm:p-10 shadow-2xl">
@@ -69,6 +70,7 @@ export default function HomePage({
         {/* Complete Catalog */}
         <ProductCatalogView
           initialProducts={products}
+          initialSearchQuery={resolvedParams?.q || ''}
           pageTitle="Alle verfügbaren Einzelsticker & Karten"
           pageSubtitle="Stöbere durch unseren gesamten Hamburger Sammlerbestand oder nutze die Filter nach Kollektion, Hersteller und Nummer."
         />

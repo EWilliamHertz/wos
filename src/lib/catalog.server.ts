@@ -2,6 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { Product } from './catalog';
+import { calculateCategoryCounts, type CategoryCounts } from './categories';
 
 const PRODUCTS_PATH = path.join(process.cwd(), 'src', 'data', 'products.json');
 const MANIFEST_PATH = path.join(process.cwd(), 'src', 'data', 'image-manifest.json');
@@ -57,4 +58,18 @@ export function saveProducts(products: Product[]): void {
   const tmpPath = `${PRODUCTS_PATH}.${process.pid}.${Date.now()}.tmp`;
   fs.writeFileSync(tmpPath, JSON.stringify(products, null, 2), 'utf-8');
   fs.renameSync(tmpPath, PRODUCTS_PATH);
+}
+
+export function getCatalogSnapshot(): {
+  products: Product[];
+  categoryCounts: CategoryCounts;
+  totalCount: number;
+} {
+  const products = getProducts();
+  const categoryCounts = calculateCategoryCounts(products);
+  return {
+    products,
+    categoryCounts,
+    totalCount: products.length,
+  };
 }

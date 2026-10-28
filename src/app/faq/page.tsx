@@ -13,7 +13,7 @@ import {
   RotateCcw,
   Sparkles,
 } from 'lucide-react';
-import { getProducts } from '@/lib/catalog.server';
+import { getCatalogSnapshot } from '@/lib/catalog.server';
 import SiteShell from '@/components/SiteShell';
 
 export const metadata: Metadata = {
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default function FaqPage() {
-  const allProducts = getProducts();
+  const { categoryCounts, totalCount } = getCatalogSnapshot();
 
   const faqs = [
     {
@@ -59,7 +59,7 @@ export default function FaqPage() {
   ];
 
   return (
-    <SiteShell totalProductsCount={allProducts.length}>
+    <SiteShell totalProductsCount={totalCount} categoryCounts={categoryCounts}>
       <div className="space-y-10 max-w-5xl mx-auto">
         {/* Header Banner */}
         <div className="bg-[#0c0f16] border border-zinc-800/80 rounded-3xl p-6 sm:p-10 space-y-4 shadow-2xl">

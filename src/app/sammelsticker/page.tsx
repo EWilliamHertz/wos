@@ -1,8 +1,8 @@
 // src/app/sammelsticker/page.tsx
 import React from 'react';
 import type { Metadata } from 'next';
-import { getProducts } from '@/lib/catalog.server';
-import { isProductInParentCategory } from '@/lib/categories';
+import { getCatalogSnapshot } from '@/lib/catalog.server';
+import { isProductInParentCategory, WOS_MAIN_CATEGORIES } from '@/lib/categories';
 import SiteShell from '@/components/SiteShell';
 import ProductCatalogView from '@/components/ProductCatalogView';
 
@@ -19,15 +19,29 @@ export default async function SammelstickerPage({
 }: {
   searchParams?: Promise<{ sub?: string; q?: string }>;
 }) {
-  const allProducts = getProducts();
-  const stickerProducts = allProducts.filter((p) =>
+  const { products, categoryCounts, totalCount } = getCatalogSnapshot();
+  const resolvedParams = await searchParams;
+  const subSlug = resolvedParams?.sub;
+
+  const stickerProducts = products.filter((p) =>
     isProductInParentCategory(p, 'sammelsticker')
   );
 
+  const categoryDef = WOS_MAIN_CATEGORIES.find((c) => c.slug === 'sammelsticker');
+  const subcategoryOptions = (categoryDef?.subcategories || []).map((sub) => ({
+    title: sub.title,
+    slug: sub.slug,
+    count: categoryCounts.sub[sub.slug] ?? 0,
+    keywords: sub.keywords,
+  }));
+
   return (
-    <SiteShell totalProductsCount={allProducts.length}>
+    <SiteShell totalProductsCount={totalCount} categoryCounts={categoryCounts}>
       <ProductCatalogView
         initialProducts={stickerProducts}
+        subcategories={subcategoryOptions}
+        initialSubSlug={subSlug}
+        initialSearchQuery={resolvedParams?.q || ''}
         pageTitle="Sammelsticker & Einzelsticker"
         pageSubtitle={`Stöbere durch ${stickerProducts.length.toLocaleString(
           'de-DE'
